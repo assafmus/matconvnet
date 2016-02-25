@@ -6,6 +6,7 @@ classdef Crop < dagnn.ElementWise
 
   properties
     crop = [0 0]
+    fixed_size = false;
   end
 
   properties (Transient)
@@ -23,12 +24,20 @@ classdef Crop < dagnn.ElementWise
 
     function outputs = forward(obj, inputs, params)
       obj.inputSizes = cellfun(@size, inputs, 'UniformOutput', false) ;
-      adjCrop = obj.getAdaptedCrops() ;
+      if obj.fixed_size
+          adjCrop = obj.crop;
+      else
+          adjCrop = obj.getAdaptedCrops() ;
+      end
       outputs{1} = vl_nncrop(inputs{1}, adjCrop) ;
     end
 
     function [derInputs, derParams] = backward(obj, inputs, params, derOutputs)
-      adjCrop = obj.getAdaptedCrops() ;
+      if obj.fixed_size
+          adjCrop = obj.crop;
+      else
+          adjCrop = obj.getAdaptedCrops() ;
+      end
       derInputs{1} = vl_nncrop(inputs{1}, adjCrop, derOutputs{1}, obj.inputSizes{1}) ;
       derInputs{2} = [] ;
       derParams = {} ;
@@ -40,14 +49,22 @@ classdef Crop < dagnn.ElementWise
 
     function outputSizes = getOutputSizes(obj, inputSizes)
       obj.inputSizes = inputSizes ;
-      crop = obj.getAdaptedCrops() ;
+      if obj.fixed_size
+          adjCrop = obj.crop;
+      else
+          adjCrop = obj.getAdaptedCrops() ;
+      end
       outputSizes{1} = inputSizes{1} - [crop(1)+crop(2), crop(3)+crop(4), 0, 0] ;
     end
 
     function rfs = getReceptiveFields(obj)
       rfs(1,1).size = [1 1] ;
       rfs(1,1).stride = [1 1] ;
-      rfs(1,1).offset = 1 + obj.crop ;
+      if obj.fixed_size
+          rfs(1,1).offset = 1 + obj.crop([1 3]) ;
+      else
+          rfs(1,1).offset = 1 + obj.crop ;
+      end
       rfs(2,1).size = [] ;
       rfs(2,1).stride = [] ;
       rfs(2,1).offset = [] ;

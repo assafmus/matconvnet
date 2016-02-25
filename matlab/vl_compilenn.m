@@ -517,7 +517,7 @@ switch arch
   case {'win64'}
     config_dir = fullfile(matlabroot, 'toolbox', ...
                           'distcomp', 'gpu', 'extern', ...
-                          'src', 'mex', arch) ;
+            'src', 'mex', arch, 'msvc2013') ;
   case {'maci64', 'glnxa64'}
     config_dir = fullfile(root, 'matlab', 'src', 'config') ;
 end

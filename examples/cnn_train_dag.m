@@ -68,7 +68,8 @@ end
 % -------------------------------------------------------------------------
 
 modelPath = @(ep) fullfile(opts.expDir, sprintf('net-epoch-%d.mat', ep));
-modelFigPath = fullfile(opts.expDir, 'net-train.pdf') ;
+modelFigPath = fullfile(opts.expDir, 'net-train.fig') ;
+modelPdfPath = fullfile(opts.expDir, 'net-train.pdf') ;
 
 start = opts.continue * findLastCheckpoint(opts.expDir) ;
 if start >= 1
@@ -108,7 +109,7 @@ for epoch=start+1:opts.numEpochs
   end
 
   if opts.plotStatistics
-    figure(1) ; clf ;
+    figure(1) ; maximize(gcf); clf ;
     plots = setdiff(...
       cat(2,...
       fieldnames(stats.train)', ...
@@ -128,13 +129,13 @@ for epoch=start+1:opts.numEpochs
       subplot(1,numel(plots),find(strcmp(p,plots))) ;
       plot(1:epoch, values','o-') ;
       xlabel('epoch') ;
-      title(p) ;
+    title(p,'Interpreter','none') ;
       legend(leg{:}) ;
       grid on ;
     end
     drawnow ;
-    print(1, modelFigPath, '-dpdf') ;
-  end
+  print(1, modelPdfPath, '-dpdf') ;
+  savefig(1, modelFigPath);
 end
 
 % -------------------------------------------------------------------------
@@ -332,7 +333,7 @@ end
 % -------------------------------------------------------------------------
 function stats = extractStats(net)
 % -------------------------------------------------------------------------
-sel = find(cellfun(@(x) isa(x,'dagnn.Loss'), {net.layers.block})) ;
+sel = find(cellfun(@(x) isa(x,'dagnn.Loss') || isa(x,'dagnn.PDist'), {net.layers.block})) ;
 stats = struct() ;
 for i = 1:numel(sel)
   stats.(net.layers(sel(i)).outputs{1}) = net.layers(sel(i)).block.average ;

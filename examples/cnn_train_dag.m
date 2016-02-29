@@ -126,7 +126,9 @@ for epoch=start+1:opts.numEpochs
                     leg{end+1} = f ;
                 end
             end
-            subplot(1,numel(plots),find(strcmp(p,plots))) ;
+            ny = round(sqrt(numel(plots)/4*3));
+            nx = ceil(numel(plots)/ny);
+            subplot(ny,nx,find(strcmp(p,plots))) ;
             plot(1:epoch, values','o-') ;
             xlabel('epoch') ;
             title(p,'Interpreter','none') ;

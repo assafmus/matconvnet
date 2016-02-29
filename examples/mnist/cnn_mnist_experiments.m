@@ -1,10 +1,10 @@
 %% Experiment with the cnn_mnist_fc_bnorm
 
 [net_bn, info_bn] = cnn_mnist(...
-  'expDir', 'data/mnist-bnorm', 'useBnorm', true);
+  'expDir', 'data/mnist-bnorm', 'batchNormalization', true, 'train', struct('gpus',1));
 
 [net_fc, info_fc] = cnn_mnist(...
-  'expDir', 'data/mnist-baseline', 'useBnorm', false);
+  'expDir', 'data/mnist-baseline', 'batchNormalization', false, 'train', struct('gpus',1));
 
 figure(1) ; clf ;
 subplot(1,2,1) ;

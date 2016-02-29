@@ -1,6 +1,9 @@
 classdef PDist < dagnn.ElementWise
     properties
         p = 2
+        noRoot = false ;
+        epsilon = 1e-6 ;
+        aggregate = false ;
         opts = {}
     end
     
@@ -10,8 +13,18 @@ classdef PDist < dagnn.ElementWise
     end
     
     methods
+        function obj = PDist(varargin)
+            obj.load(varargin) ;
+            % normalize field by implicitly calling setters defined in
+            % dagnn.Filter and here
+            obj.p = obj.p ;
+            obj.noRoot = obj.noRoot ;
+            obj.epsilon = obj.epsilon ;
+            obj.aggregate = obj.aggregate ;
+        end
+        
         function outputs = forward(obj, inputs, params)
-            outputs{1} = vl_nnpdist(inputs{1}, inputs{2}, obj.p, obj.opts{:}) ;
+            outputs{1} = vl_nnpdist(inputs{1}, inputs{2}, obj.p, 'noRoot', obj.noRoot, 'epsilon', obj.epsilon, 'aggregate', obj.aggregate, obj.opts{:}) ;
             n = obj.numAveraged ;
             m = n + size(inputs{1},4) ;
             obj.average = (n * obj.average + gather(outputs{1})) / m ;
@@ -19,7 +32,7 @@ classdef PDist < dagnn.ElementWise
         end
         
         function [derInputs, derParams] = backward(obj, inputs, params, derOutputs)
-            derInputs{1} = vl_nnpdist(inputs{1}, inputs{2}, obj.p, derOutputs{1}, obj.opts{:}) ;
+            derInputs{1} = vl_nnpdist(inputs{1}, inputs{2}, obj.p, derOutputs{1}, 'noRoot', obj.noRoot, 'epsilon', obj.epsilon, 'aggregate', obj.aggregate, obj.opts{:}) ;
             derInputs{2} = [] ;
             derParams = {} ;
         end

@@ -168,6 +168,8 @@ subset = state.(mode) ;
 start = tic ;
 num = 0 ;
 
+lastPrint = '';
+backChar = sprintf('\b');
 for t=1:opts.batchSize:numel(subset)
     batchSize = min(opts.batchSize, numel(subset) - t + 1) ;
     
@@ -219,17 +221,30 @@ for t=1:opts.batchSize:numel(subset)
     stats.num = num ;
     stats.time = toc(start) ;
     
-    fprintf('%s: epoch %02d: %3d/%3d: %.1f Hz', ...
+    printStr = sprintf('%s: epoch %02d: %3d/%3d: %.1f Hz\n', ...
         mode, ...
         state.epoch, ...
         fix(t/opts.batchSize)+1, ceil(numel(subset)/opts.batchSize), ...
         stats.num/stats.time * max(numGpus, 1)) ;
+    count = 0;
     for f = setdiff(fieldnames(stats)', {'num', 'time'})
         f = char(f) ;
-        fprintf(' %s:', f) ;
-        fprintf(' %.3f', stats.(f)) ;
+        printStr = [printStr sprintf(' %s:', f)];
+        printStr = [printStr sprintf(' %.3f', stats.(f))];
+        count = count + 1;
+        if ~mod(count, 3)
+            printStr = [printStr sprintf('\n')];
+        end
     end
-    fprintf('\n') ;
+    if mod(count, 3)
+        printStr = [printStr sprintf('\n')];
+    end
+    
+    if ~isempty(lastPrint)
+        fprintf(repmat(backChar,1,numel(lastPrint)));
+    end
+    fprintf(printStr);
+    lastPrint = printStr;
 end
 
 net.reset() ;

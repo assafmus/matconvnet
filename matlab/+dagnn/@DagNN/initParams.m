@@ -18,5 +18,6 @@ for l = 1:numel(obj.layers)
     case 'gpu'
       params = cellfun(@gpuArray, params, 'UniformOutput', false) ;
   end
-  [obj.params(p).value] = deal(params{:}) ;
+  e = arrayfun(@(x) isempty(x.value), obj.params(p));
+  [obj.params(p(e)).value] = deal(params{e}) ;
 end

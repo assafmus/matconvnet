@@ -152,7 +152,6 @@ hasIgnoreLabel = any(c(:) == 0);
 labelSize = [size(c,1) size(c,2) size(c,3) size(c,4)] ;
 assert(isequal(labelSize(1:2), inputSize(1:2))) ;
 assert(labelSize(4) == inputSize(4)) ;
-instanceWeights = [] ;
 switch lower(opts.loss)
   case {'classerror', 'topkerror', 'log', 'softmaxlog', 'mhinge', 'mshinge'}
     % there must be one categorical label per prediction vector
@@ -178,12 +177,27 @@ switch lower(opts.loss)
 end
 
 if ~isempty(opts.instanceWeights)
-  % important: this code needs to broadcast opts.instanceWeights to
-  % an array of the same size as c
-  if isempty(instanceWeights)
-    instanceWeights = bsxfun(@times, onesLike(c), opts.instanceWeights) ;
-  end
+    % important: this code needs to broadcast opts.instanceWeights to
+    % an array of the same size as c
+    if isempty(instanceWeights)
+        instanceWeights = bsxfun(@times, onesLike(c), opts.instanceWeights) ;
+    else
+        instanceWeights = bsxfun(@times, instanceWeights, opts.instanceWeights) ;
+    end
 end
+
+if ~isempty(opts.classWeights)
+    % important: this code needs to broadcast opts.instanceWeights to
+    % an array of the same size as c
+    classWeights = [0; opts.classWeights(:)];
+    if isempty(instanceWeights)
+        instanceWeights = bsxfun(@times, onesLike(c), classWeights(c+1)) ;
+    else
+        instanceWeights = bsxfun(@times, instanceWeights, classWeights(c+1)) ;
+    end
+end
+
+% instanceWeights = instanceWeights / sum(instanceWeights(:));
 
 % --------------------------------------------------------------------
 % Do the work

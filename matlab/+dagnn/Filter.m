@@ -41,11 +41,11 @@ classdef Filter < dagnn.Layer
       y2 = 1 - obj.pad(1) + ks(1) - 1 ;
       x1 = 1 - obj.pad(3) ;
       x2 = 1 - obj.pad(3) + ks(2) - 1 ;
-      h = y2 - y1 + 1 ;
-      w = x2 - x1 + 1 ;
+      h = y2 - y1 + 1 ; %ks(1)
+      w = x2 - x1 + 1 ; %ks(2)
       rfs.size = [h, w] ;
       rfs.stride = obj.stride ;
-      rfs.offset = [y1+y2, x1+x2]/2 ;
+      rfs.offset = [y1+y2, x1+x2]/2 ; %(ks(1)+1)/2 -pad(1)
     end
   end
 end

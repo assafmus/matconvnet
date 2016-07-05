@@ -61,6 +61,8 @@ classdef MapGenerator < dagnn.Layer
         end
         
         function outputSizes = getOutputSizes(obj, inputSizes, paramSizes)
+            inputSizes{1} = [inputSizes{1} 1 1 1 1];
+            inputSizes{1} = inputSizes{1}(1:4);
             outputSizes{1} = [inputSizes{1}(1) inputSizes{1}(2) 1 inputSizes{1}(4)] ;
         end
         

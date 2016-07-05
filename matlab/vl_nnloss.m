@@ -148,7 +148,7 @@ hasIgnoreLabel = any(c(:) == 0);
 % --------------------------------------------------------------------
 % Spatial weighting
 % --------------------------------------------------------------------
-
+instanceWeights = [];
 labelSize = [size(c,1) size(c,2) size(c,3) size(c,4)] ;
 assert(isequal(labelSize(1:2), inputSize(1:2))) ;
 assert(labelSize(4) == inputSize(4)) ;

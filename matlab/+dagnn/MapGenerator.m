@@ -18,33 +18,52 @@ classdef MapGenerator < dagnn.Layer
                 obj.winSize = rf.size;
                 obj.winStride = rf.stride;
                 obj.winPad = (obj.winSize+1)/2 - rf.offset;
-                assert(~any(obj.winPad))
             end
             
             [xs,ys] = meshgrid(1:size(inputs{1},2),1:size(inputs{1},1));
-            xs = (xs-1)*obj.winStride(2)+1;
-            ys = (ys-1)*obj.winStride(1)+1;
-            grid_rects = [xs(:) ys(:) repmat(obj.winSize([2 1]), numel(xs),1)];
-            
+            xs = (xs-1)*obj.winStride(2)+1-obj.winPad(2);
+            ys = (ys-1)*obj.winStride(1)+1-obj.winPad(1);
+            grid_rects = [xs(:) ys(:) repmat(obj.winSize([2 1]), numel(xs),1)];            
             
             sz = obj.getOutputSizes(cellfun(@size, inputs, 'uniformoutput',false));
-            outputs = {gpuArray(zeros(sz{1},'single'))};
+            outputs = {gpuArray(zeros(sz{1},'single')) gpuArray(nan(sz{2},'single'))};
             
             for i = 1 : size(inputs{1},4)
-                O = rectOverlap(grid_rects, inputs{2}{i});
-                O = max(O,[],2);
-                pos = O > .5;
-                neg = O < .2;
+                all_rects = inputs{2}{i}(:,1:4);
+                valid_flag = ~~inputs{2}{i}(:,5);
+                pos_rects = all_rects(valid_flag,:);
+                
+                Oall = rectOverlap(grid_rects, all_rects);
+                Oall = max(Oall,[],2);
+                neg = Oall < .2;
+                                
+                Opos = rectOverlap(grid_rects, pos_rects);
+                [Opos,Ipos] = max(Opos,[],2);
+                pos = Opos > .5;
+                
                 tmp = outputs{1}(:,:,:,i);
                 tmp(pos) = 2;
                 tmp(neg) = 1;
                 outputs{1}(:,:,:,i) = tmp;
+                                
+                tmp = outputs{2}(:,:,:,i);
+                tmp = permute(tmp,[3 1 2]);
+                tmp(1,pos) = (pos_rects(Ipos(pos),1) - grid_rects(pos,1)) ./ grid_rects(pos,3);
+                tmp(2,pos) = (pos_rects(Ipos(pos),2) - grid_rects(pos,2)) ./ grid_rects(pos,4);
+                tmp(3,pos) = log2(pos_rects(Ipos(pos),3) ./ grid_rects(pos,3));
+                tmp(4,pos) = log2(pos_rects(Ipos(pos),4) ./ grid_rects(pos,4));
+                tmp = permute(tmp,[2 3 1]);
+                outputs{2}(:,:,:,i) = tmp;
                 
 %                 input = obj.net.getVar('input').value;
 %                 imshow(input(:,:,:,i))
-%                 plotRect(grid_rects(neg,:),'r')
-%                 plotRect(grid_rects(~neg&~pos,:),'y')
-%                 plotRect(grid_rects(pos,:),'g')
+%                 plotRect(inputs{2}{i}(:,1:4),'y');
+%                 plotRect(inputs{2}{i}(~~inputs{2}{i}(:,5),1:4),'g');
+                
+                
+                % plotRect(grid_rects(neg,:),'r')
+                % plotRect(grid_rects(~neg&~pos,:),'y')
+                % plotRect(grid_rects(pos,:),'g')
             end
             
             
@@ -64,15 +83,16 @@ classdef MapGenerator < dagnn.Layer
             inputSizes{1} = [inputSizes{1} 1 1 1 1];
             inputSizes{1} = inputSizes{1}(1:4);
             outputSizes{1} = [inputSizes{1}(1) inputSizes{1}(2) 1 inputSizes{1}(4)] ;
+            outputSizes{2} = [inputSizes{1}(1) inputSizes{1}(2) 4 inputSizes{1}(4)] ;
         end
         
         function rfs = getReceptiveFields(obj)
             % the receptive field depends on the dimension of the variables
             % which is not known until the network is run
-            rfs(1,1).size = [NaN NaN] ;
-            rfs(1,1).stride = [NaN NaN] ;
-            rfs(1,1).offset = [NaN NaN] ;
-            rfs(2,1) = rfs(1,1) ;
+            rfs.size = [NaN NaN] ;
+            rfs.stride = [NaN NaN] ;
+            rfs.offset = [NaN NaN] ;
+            rfs = repmat(rfs,2,2);
         end
         
         function obj = MapGenerator(varargin)

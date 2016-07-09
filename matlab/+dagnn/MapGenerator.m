@@ -1,6 +1,10 @@
 classdef MapGenerator < dagnn.Layer
     properties
         opts = {}
+        
+        forceValidPositive = true;
+        posOverlapThreshold = 0.5;
+        negOverlapThreshold = 0.2;
     end
     
     properties (Transient)
@@ -34,18 +38,22 @@ classdef MapGenerator < dagnn.Layer
                 pos_rects = all_rects(valid_flag,:);
                 
                 Oall = rectOverlap(grid_rects, all_rects);
-                Oall = max(Oall,[],2);
-                neg = Oall < .2;
-                                
-                Opos = rectOverlap(grid_rects, pos_rects);
+                Oneg = max(Oall,[],2);
+                neg = Oneg < obj.negOverlapThreshold;
+
+                if obj.forceValidPositive
+                    Opos = rectOverlap(grid_rects, pos_rects);
+                else
+                    Opos = Oall;
+                end
                 [Opos,Ipos] = max(Opos,[],2);
-                pos = Opos > .5;
+                pos = Opos > obj.posOverlapThreshold;
                 
                 tmp = outputs{1}(:,:,:,i);
                 tmp(pos) = 2;
                 tmp(neg) = 1;
                 outputs{1}(:,:,:,i) = tmp;
-                                
+                                        
                 tmp = outputs{2}(:,:,:,i);
                 tmp = permute(tmp,[3 1 2]);
                 tmp(1,pos) = (pos_rects(Ipos(pos),1) - grid_rects(pos,1)) ./ grid_rects(pos,3);

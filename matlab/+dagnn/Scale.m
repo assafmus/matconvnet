@@ -1,6 +1,7 @@
 classdef Scale < dagnn.ElementWise
   properties
     hasBias = true
+    size
   end
 
   methods

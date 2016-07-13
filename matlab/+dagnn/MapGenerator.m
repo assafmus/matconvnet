@@ -5,6 +5,8 @@ classdef MapGenerator < dagnn.Layer
         forceValidPositive = true;
         posOverlapThreshold = 0.5;
         negOverlapThreshold = 0.2;
+        
+        posNegRatio = [];
     end
     
     properties (Transient)
@@ -48,6 +50,14 @@ classdef MapGenerator < dagnn.Layer
                 Opos = rectOverlap(grid_rects, pos_rects);
                 [Opos,Ipos] = max(Opos,[],2);
                 pos = Opos > obj.posOverlapThreshold;
+                
+                if ~isempty(obj.posNegRatio)
+                    nPos = sum(pos(:));
+                    scores=vl_nnsoftmax(inputs{1}(:,:,:,i));
+                    scores=scores(:,:,2);
+                    th = prctile(scores(neg), (1-obj.posNegRatio*nPos/numel(scores))*100);
+                    neg = neg & scores(:) >= th;
+                end
                 
                 tmp = outputs{1}(:,:,:,i);
                 tmp(pos) = 2;

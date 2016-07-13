@@ -83,10 +83,10 @@ classdef Layer < handle
             
             % call the simplified interface
             outputs = obj.forward(inputs, {net.params(par).value}) ;
-      for oi = 1:numel(out)
-        net.vars(out(oi)).value = outputs{oi};
-      end
-    end
+            for oi = 1:numel(out)
+                net.vars(out(oi)).value = outputs{oi};
+            end
+        end
         
         function backwardAdvanced(obj, layer)
             %BACKWARDADVANCED Advanced driver for backward computation
@@ -119,9 +119,9 @@ classdef Layer < handle
             % compute derivatives of inputs and paramerters
             [derInputs, derParams] = obj.backward ...
                 (inputs, {net.params(par).value}, derOutputs) ;
-      if ~iscell(derInputs) || numel(derInputs) ~= numel(in)
-        error('Invalid derivatives returned by layer "%s".', layer.name);
-      end
+            if ~iscell(derInputs) || numel(derInputs) ~= numel(in)
+                error('Invalid derivatives returned by layer "%s".', layer.name);
+            end
             
             % accumuate derivatives
             for i = 1:numel(in)
@@ -186,12 +186,12 @@ classdef Layer < handle
             %  to the previous call.
             s = dagnn.Layer.argsToStruct(varargin{:}) ;
             for f = fieldnames(s)'
-        fc = char(f) ;
-        if ~isprop(obj, fc)
-          error('No property `%s` for a layer of type `%s`.', ...
-            fc, class(obj));
-        end;
-        obj.(fc) = s.(fc) ;
+                fc = char(f) ;
+                if ~isprop(obj, fc)
+                    error('No property `%s` for a layer of type `%s`.', ...
+                        fc, class(obj));
+                end;
+                obj.(fc) = s.(fc) ;
             end
         end
         

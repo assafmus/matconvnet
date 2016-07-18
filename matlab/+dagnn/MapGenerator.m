@@ -6,6 +6,8 @@ classdef MapGenerator < dagnn.Layer
         posOverlapThreshold = 0.5;
         negOverlapThreshold = 0.2;
         
+        bbreg_mode = 1;
+        
         posNegRatio = [];
     end
     
@@ -66,10 +68,23 @@ classdef MapGenerator < dagnn.Layer
                                         
                 tmp = outputs{2}(:,:,:,i);
                 tmp = permute(tmp,[3 1 2]);
-                tmp(1,pos) = (pos_rects(Ipos(pos),1) - grid_rects(pos,1)) ./ grid_rects(pos,3);
-                tmp(2,pos) = (pos_rects(Ipos(pos),2) - grid_rects(pos,2)) ./ grid_rects(pos,4);
-                tmp(3,pos) = log2(pos_rects(Ipos(pos),3) ./ grid_rects(pos,3));
-                tmp(4,pos) = log2(pos_rects(Ipos(pos),4) ./ grid_rects(pos,4));
+                switch obj.bbreg_mode
+                    case 1
+                        tmp(1,pos) = (pos_rects(Ipos(pos),1) - grid_rects(pos,1)) ./ grid_rects(pos,3);
+                        tmp(2,pos) = (pos_rects(Ipos(pos),2) - grid_rects(pos,2)) ./ grid_rects(pos,4);
+                        tmp(3,pos) = log2(pos_rects(Ipos(pos),3) ./ grid_rects(pos,3));
+                        tmp(4,pos) = log2(pos_rects(Ipos(pos),4) ./ grid_rects(pos,4));
+                    case 2
+                        tmp(1,pos) = (pos_rects(Ipos(pos),1)+pos_rects(Ipos(pos),3)/2 - grid_rects(pos,1)+grid_rects(pos,3)/2) ./ grid_rects(pos,3);
+                        tmp(2,pos) = (pos_rects(Ipos(pos),2)+pos_rects(Ipos(pos),4)/2 - grid_rects(pos,2)+grid_rects(pos,4)/2) ./ grid_rects(pos,4);
+                        tmp(3,pos) = (pos_rects(Ipos(pos),3) - grid_rects(pos,3)) ./ grid_rects(pos,3);
+                        tmp(4,pos) = (pos_rects(Ipos(pos),4) - grid_rects(pos,4)) ./ grid_rects(pos,4);
+                    case 3
+                        tmp(1,pos) = (pos_rects(Ipos(pos),1) - grid_rects(pos,1)) ./ grid_rects(pos,3);
+                        tmp(2,pos) = (pos_rects(Ipos(pos),2) - grid_rects(pos,2)) ./ grid_rects(pos,4);
+                        tmp(3,pos) = (sum(pos_rects(Ipos(pos),[1 3]),2) - sum(grid_rects(pos,[1 3]),2)) ./ grid_rects(pos,3);
+                        tmp(4,pos) = (sum(pos_rects(Ipos(pos),[2 4]),2) - sum(grid_rects(pos,[2 4]),2)) ./ grid_rects(pos,4);
+                end
                 tmp = permute(tmp,[2 3 1]);
                 outputs{2}(:,:,:,i) = tmp;
                 

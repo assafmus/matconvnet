@@ -213,8 +213,8 @@ if ~isempty(opts.classWeights)
     end
 end
 
-weightFactor = sum(sum(instanceWeights,1),2);
-instanceWeights = bsxfun(@rdivide, instanceWeights, weightFactor+~weightFactor);
+%weightFactor = sum(sum(instanceWeights,1),2);
+%instanceWeights = bsxfun(@rdivide, instanceWeights, weightFactor+~weightFactor);
 
 % --------------------------------------------------------------------
 % Do the work

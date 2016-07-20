@@ -163,7 +163,7 @@ switch lower(opts.loss)
             instanceWeights = cast(c(:,:,1,:) ~= 0, 'like', c) ;
         end
         
-    case {'truepositive'}
+    case {'falsenegative'}
         % there must be one categorical label per prediction vector
         assert(labelSize(3) == 1) ;        
         instanceWeights = cast(c(:,:,1,:) == opts.positiveClass, 'like', c) ;
@@ -235,7 +235,7 @@ end
 
 if nargin <= 2 || isempty(dzdy)
     switch lower(opts.loss)
-        case {'classerror', 'truepositive', 'falsepositive'}
+        case {'classerror', 'falsenegative', 'falsepositive'}
             [~,chat] = max(X,[],3) ;
             t = cast(c ~= chat, 'like', c) ;
         case 'topkerror'

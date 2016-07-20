@@ -131,6 +131,7 @@ opts.classWeights = [] ;
 opts.threshold = 0 ;
 opts.loss = 'softmaxlog' ;
 opts.topK = 5 ;
+opts.positiveClass = [];
 opts = vl_argparse(opts, varargin, 'nonrecursive') ;
 
 inputSize = [size(X,1) size(X,2) size(X,3) size(X,4)] ;
@@ -139,8 +140,8 @@ inputSize = [size(X,1) size(X,2) size(X,3) size(X,4)] ;
 % form 3.
 c = gather(c) ;
 if numel(c) == inputSize(4)
-  c = reshape(c, [1 1 1 inputSize(4)]) ;
-  c = repmat(c, inputSize(1:2)) ;
+    c = reshape(c, [1 1 1 inputSize(4)]) ;
+    c = repmat(c, inputSize(1:2)) ;
 end
 
 hasIgnoreLabel = any(c(:) == 0);
@@ -153,27 +154,42 @@ labelSize = [size(c,1) size(c,2) size(c,3) size(c,4)] ;
 assert(isequal(labelSize(1:2), inputSize(1:2))) ;
 assert(labelSize(4) == inputSize(4)) ;
 switch lower(opts.loss)
-  case {'classerror', 'topkerror', 'log', 'softmaxlog', 'mhinge', 'mshinge'}
-    % there must be one categorical label per prediction vector
-    assert(labelSize(3) == 1) ;
-
-    if hasIgnoreLabel
-      % null labels denote instances that should be skipped
-      instanceWeights = cast(c(:,:,1,:) ~= 0, 'like', c) ;
-    end
-
-  case {'binaryerror', 'binarylog', 'logistic', 'hinge'}
-
-    % there must be one categorical label per prediction scalar
-    assert(labelSize(3) == inputSize(3)) ;
-
-    if hasIgnoreLabel
-      % null labels denote instances that should be skipped
-      instanceWeights = cast(c ~= 0, 'like', c) ;
-    end
-
-  otherwise
-    error('Unknown loss ''%s''.', opts.loss) ;
+    case {'classerror', 'topkerror', 'log', 'softmaxlog', 'mhinge', 'mshinge'}
+        % there must be one categorical label per prediction vector
+        assert(labelSize(3) == 1) ;
+        
+        if hasIgnoreLabel
+            % null labels denote instances that should be skipped
+            instanceWeights = cast(c(:,:,1,:) ~= 0, 'like', c) ;
+        end
+        
+    case {'truepositive'}
+        % there must be one categorical label per prediction vector
+        assert(labelSize(3) == 1) ;        
+        instanceWeights = cast(c(:,:,1,:) == opts.positiveClass, 'like', c) ;
+        
+    case {'falsepositive'}
+        % there must be one categorical label per prediction vector
+        assert(labelSize(3) == 1) ;
+        [~,chat] = max(X,[],3) ;
+        
+        fp = c(:,:,1,:) ~= 0 & c(:,:,1,:) ~= opts.positiveClass & ...
+            (chat(:,:,1,:) == opts.positiveClass | chat(:,:,1,:) == c(:,:,1,:));
+        
+        instanceWeights = cast(fp, 'like', c) ;
+        
+    case {'binaryerror', 'binarylog', 'logistic', 'hinge'}
+        
+        % there must be one categorical label per prediction scalar
+        assert(labelSize(3) == inputSize(3)) ;
+        
+        if hasIgnoreLabel
+            % null labels denote instances that should be skipped
+            instanceWeights = cast(c ~= 0, 'like', c) ;
+        end
+        
+    otherwise
+        error('Unknown loss ''%s''.', opts.loss) ;
 end
 
 if ~isempty(opts.instanceWeights)
@@ -197,117 +213,118 @@ if ~isempty(opts.classWeights)
     end
 end
 
-% instanceWeights = instanceWeights / sum(instanceWeights(:));
+weightFactor = sum(sum(instanceWeights,1),2);
+instanceWeights = bsxfun(@rdivide, instanceWeights, weightFactor+~weightFactor);
 
 % --------------------------------------------------------------------
 % Do the work
 % --------------------------------------------------------------------
 
 switch lower(opts.loss)
-  case {'log', 'softmaxlog', 'mhinge', 'mshinge'}
-    % from category labels to indexes
-    numPixelsPerImage = prod(inputSize(1:2)) ;
-    numPixels = numPixelsPerImage * inputSize(4) ;
-    imageVolume = numPixelsPerImage * inputSize(3) ;
-
-    n = reshape(0:numPixels-1,labelSize) ;
-    offset = 1 + mod(n, numPixelsPerImage) + ...
-             imageVolume * fix(n / numPixelsPerImage) ;
-    ci = offset + numPixelsPerImage * max(c - 1,0) ;
+    case {'log', 'softmaxlog', 'mhinge', 'mshinge'}
+        % from category labels to indexes
+        numPixelsPerImage = prod(inputSize(1:2)) ;
+        numPixels = numPixelsPerImage * inputSize(4) ;
+        imageVolume = numPixelsPerImage * inputSize(3) ;
+        
+        n = reshape(0:numPixels-1,labelSize) ;
+        offset = 1 + mod(n, numPixelsPerImage) + ...
+            imageVolume * fix(n / numPixelsPerImage) ;
+        ci = offset + numPixelsPerImage * max(c - 1,0) ;
 end
 
 if nargin <= 2 || isempty(dzdy)
-  switch lower(opts.loss)
-    case 'classerror'
-      [~,chat] = max(X,[],3) ;
-      t = cast(c ~= chat, 'like', c) ;
-    case 'topkerror'
-      [~,predictions] = sort(X,3,'descend') ;
-      t = 1 - sum(bsxfun(@eq, c, predictions(:,:,1:opts.topK,:)), 3) ;
-    case 'log'
-      t = - log(X(ci)) ;
-    case 'softmaxlog'
-      Xmax = max(X,[],3) ;
-      ex = exp(bsxfun(@minus, X, Xmax)) ;
-      t = Xmax + log(sum(ex,3)) - X(ci) ;
-    case 'mhinge'
-      t = max(0, 1 - X(ci)) ;
-    case 'mshinge'
-      Q = X ;
-      Q(ci) = -inf ;
-      t = max(0, 1 - X(ci) + max(Q,[],3)) ;
-    case 'binaryerror'
-      t = cast(sign(X - opts.threshold) ~= c, 'like', c) ;
-    case 'binarylog'
-      t = -log(c.*(X-0.5) + 0.5) ;
-    case 'logistic'
-      %t = log(1 + exp(-c.*X)) ;
-      a = -c.*X ;
-      b = max(0, a) ;
-      t = b + log(exp(-b) + exp(a-b)) ;
-    case 'hinge'
-      t = max(0, 1 - c.*X) ;
-  end
-  if ~isempty(instanceWeights)
-    Y = instanceWeights(:)' * t(:) ;
-  else
-    Y = sum(t(:));
-  end
+    switch lower(opts.loss)
+        case {'classerror', 'truepositive', 'falsepositive'}
+            [~,chat] = max(X,[],3) ;
+            t = cast(c ~= chat, 'like', c) ;
+        case 'topkerror'
+            [~,predictions] = sort(X,3,'descend') ;
+            t = 1 - sum(bsxfun(@eq, c, predictions(:,:,1:opts.topK,:)), 3) ;
+        case 'log'
+            t = - log(X(ci)) ;
+        case 'softmaxlog'
+            Xmax = max(X,[],3) ;
+            ex = exp(bsxfun(@minus, X, Xmax)) ;
+            t = Xmax + log(sum(ex,3)) - X(ci) ;
+        case 'mhinge'
+            t = max(0, 1 - X(ci)) ;
+        case 'mshinge'
+            Q = X ;
+            Q(ci) = -inf ;
+            t = max(0, 1 - X(ci) + max(Q,[],3)) ;
+        case 'binaryerror'
+            t = cast(sign(X - opts.threshold) ~= c, 'like', c) ;
+        case 'binarylog'
+            t = -log(c.*(X-0.5) + 0.5) ;
+        case 'logistic'
+            %t = log(1 + exp(-c.*X)) ;
+            a = -c.*X ;
+            b = max(0, a) ;
+            t = b + log(exp(-b) + exp(a-b)) ;
+        case 'hinge'
+            t = max(0, 1 - c.*X) ;
+    end
+    if ~isempty(instanceWeights)
+        Y = instanceWeights(:)' * t(:) ;
+    else
+        Y = sum(t(:));
+    end
 else
-  if ~isempty(instanceWeights)
-    dzdy = dzdy * instanceWeights ;
-  end
-  switch lower(opts.loss)
-    case {'classerror', 'topkerror'}
-      Y = zerosLike(X) ;
-    case 'log'
-      Y = zerosLike(X) ;
-      Y(ci) = - dzdy ./ max(X(ci), 1e-8) ;
-    case 'softmaxlog'
-      Xmax = max(X,[],3) ;
-      ex = exp(bsxfun(@minus, X, Xmax)) ;
-      Y = bsxfun(@rdivide, ex, sum(ex,3)) ;
-      Y(ci) = Y(ci) - 1 ;
-      Y = bsxfun(@times, dzdy, Y) ;
-    case 'mhinge'
-      Y = zerosLike(X) ;
-      Y(ci) = - dzdy .* (X(ci) < 1) ;
-    case 'mshinge'
-      Q = X ;
-      Q(ci) = -inf ;
-      [~, q] = max(Q,[],3) ;
-      qi = offset + numPixelsPerImage * (q - 1) ;
-      W = dzdy .* (X(ci) - X(qi) < 1) ;
-      Y = zerosLike(X) ;
-      Y(ci) = - W ;
-      Y(qi) = + W ;
-    case 'binaryerror'
-      Y = zerosLike(X) ;
-    case 'binarylog'
-      Y = - dzdy ./ (X + (c-1)*0.5) ;
-    case 'logistic'
-      % t = exp(-Y.*X) / (1 + exp(-Y.*X)) .* (-Y)
-      % t = 1 / (1 + exp(Y.*X)) .* (-Y)
-      Y = - dzdy .* c ./ (1 + exp(c.*X)) ;
-    case 'hinge'
-      Y = - dzdy .* c .* (c.*X < 1) ;
-  end
+    if ~isempty(instanceWeights)
+        dzdy = dzdy * instanceWeights ;
+    end
+    switch lower(opts.loss)
+        case {'classerror', 'topkerror'}
+            Y = zerosLike(X) ;
+        case 'log'
+            Y = zerosLike(X) ;
+            Y(ci) = - dzdy ./ max(X(ci), 1e-8) ;
+        case 'softmaxlog'
+            Xmax = max(X,[],3) ;
+            ex = exp(bsxfun(@minus, X, Xmax)) ;
+            Y = bsxfun(@rdivide, ex, sum(ex,3)) ;
+            Y(ci) = Y(ci) - 1 ;
+            Y = bsxfun(@times, dzdy, Y) ;
+        case 'mhinge'
+            Y = zerosLike(X) ;
+            Y(ci) = - dzdy .* (X(ci) < 1) ;
+        case 'mshinge'
+            Q = X ;
+            Q(ci) = -inf ;
+            [~, q] = max(Q,[],3) ;
+            qi = offset + numPixelsPerImage * (q - 1) ;
+            W = dzdy .* (X(ci) - X(qi) < 1) ;
+            Y = zerosLike(X) ;
+            Y(ci) = - W ;
+            Y(qi) = + W ;
+        case 'binaryerror'
+            Y = zerosLike(X) ;
+        case 'binarylog'
+            Y = - dzdy ./ (X + (c-1)*0.5) ;
+        case 'logistic'
+            % t = exp(-Y.*X) / (1 + exp(-Y.*X)) .* (-Y)
+            % t = 1 / (1 + exp(Y.*X)) .* (-Y)
+            Y = - dzdy .* c ./ (1 + exp(c.*X)) ;
+        case 'hinge'
+            Y = - dzdy .* c .* (c.*X < 1) ;
+    end
 end
 
 % --------------------------------------------------------------------
 function y = zerosLike(x)
 % --------------------------------------------------------------------
 if isa(x,'gpuArray')
-  y = gpuArray.zeros(size(x),classUnderlying(x)) ;
+    y = gpuArray.zeros(size(x),classUnderlying(x)) ;
 else
-  y = zeros(size(x),'like',x) ;
+    y = zeros(size(x),'like',x) ;
 end
 
 % --------------------------------------------------------------------
 function y = onesLike(x)
 % --------------------------------------------------------------------
 if isa(x,'gpuArray')
-  y = gpuArray.ones(size(x),classUnderlying(x)) ;
+    y = gpuArray.ones(size(x),classUnderlying(x)) ;
 else
-  y = ones(size(x),'like',x) ;
+    y = ones(size(x),'like',x) ;
 end

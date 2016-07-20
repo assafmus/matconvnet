@@ -59,11 +59,11 @@ opts.aggregate = false ;
 opts.instanceWeights = [] ;
 backMode = numel(varargin) > 0 && ~ischar(varargin{1}) ;
 if backMode
-  dzdy = varargin{1} ;
-  opts = vl_argparse(opts, varargin(2:end), 'nonrecursive') ;
+    dzdy = varargin{1} ;
+    opts = vl_argparse(opts, varargin(2:end), 'nonrecursive') ;
 else
-  dzdy = [] ;
-  opts = vl_argparse(opts, varargin, 'nonrecursive') ;
+    dzdy = [] ;
+    opts = vl_argparse(opts, varargin, 'nonrecursive') ;
 end
 
 % -------------------------------------------------------------------------
@@ -73,61 +73,75 @@ end
 d = bsxfun(@minus, x, x0) ;
 d(isnan(x0)) = 0;
 
-if ~isempty(dzdy) && ~isempty(opts.instanceWeights)
-  dzdy = bsxfun(@times, opts.instanceWeights, dzdy) ;
+% null labels denote instances that should be skipped
+instanceWeights = cast(any(~isnan(x0),3), 'like', x) ;
+
+if ~isempty(opts.instanceWeights)
+    % important: this code needs to broadcast opts.instanceWeights to
+    % an array of the same size as c
+    if isempty(instanceWeights)
+        instanceWeights = bsxfun(@times, onesLike(c), opts.instanceWeights) ;
+    else
+        instanceWeights = bsxfun(@times, instanceWeights, opts.instanceWeights) ;
+    end
+end
+
+weightFactor = sum(sum(instanceWeights,1),2);
+instanceWeights = bsxfun(@rdivide, instanceWeights, weightFactor+~weightFactor);
+
+if ~isempty(dzdy)
+    dzdy = bsxfun(@times, instanceWeights, dzdy) ;
 end
 
 if ~opts.noRoot
-  if isempty(dzdy)
-    if p == 1
-      y1 = sum(abs(d),3) ;
-    elseif p == 2
-      y1 = sqrt(sum(d.*d,3)) ;
+    if isempty(dzdy)
+        if p == 1
+            y1 = sum(abs(d),3) ;
+        elseif p == 2
+            y1 = sqrt(sum(d.*d,3)) ;
+        else
+            y1 = sum(abs(d).^p,3).^(1/p) ;
+        end
     else
-      y1 = sum(abs(d).^p,3).^(1/p) ;
+        if p == 1
+            y1 = bsxfun(@times, dzdy, sign(d)) ;
+        elseif p == 2
+            y1 = max(sum(d.*d,3), opts.epsilon).^(-0.5) ;
+            y1 = bsxfun(@times, bsxfun(@times, dzdy, y1),  d) ;
+        elseif p < 1
+            y1 = sum(abs(d).^p,3).^((1-p)/p) ;
+            y1 = bsxfun(@times, bsxfun(@times, dzdy, y1), max(abs(d), opts.epsilon).^(p-1) .* sign(d)) ;
+        else
+            y1 = max(sum(abs(d).^p,3), opts.epsilon).^((1-p)/p) ;
+            y1 = bsxfun(@times, bsxfun(@times, dzdy, y1), abs(d).^(p-1) .* sign(d)) ;
+        end
     end
-  else
-    if p == 1
-      y1 = bsxfun(@times, dzdy, sign(d)) ;
-    elseif p == 2
-      y1 = max(sum(d.*d,3), opts.epsilon).^(-0.5) ;
-      y1 = bsxfun(@times, bsxfun(@times, dzdy, y1),  d) ;
-    elseif p < 1
-      y1 = sum(abs(d).^p,3).^((1-p)/p) ;
-      y1 = bsxfun(@times, bsxfun(@times, dzdy, y1), max(abs(d), opts.epsilon).^(p-1) .* sign(d)) ;
-    else
-      y1 = max(sum(abs(d).^p,3), opts.epsilon).^((1-p)/p) ;
-      y1 = bsxfun(@times, bsxfun(@times, dzdy, y1), abs(d).^(p-1) .* sign(d)) ;
-    end
-  end
 else
-  if isempty(dzdy)
-    if p == 1
-      y1 = sum(abs(d),3) ;
-    elseif p == 2
-      y1 = sum(d.*d,3) ;
+    if isempty(dzdy)
+        if p == 1
+            y1 = sum(abs(d),3) ;
+        elseif p == 2
+            y1 = sum(d.*d,3) ;
+        else
+            y1 = sum(abs(d).^p,3) ;
+        end
     else
-      y1 = sum(abs(d).^p,3) ;
+        if p == 1
+            y1 = bsxfun(@times, dzdy, sign(d)) ;
+        elseif p == 2
+            y1 = bsxfun(@times, 2 * dzdy, d) ;
+        elseif p < 1
+            y1 = bsxfun(@times, p * dzdy, max(abs(d), opts.epsilon).^(p-1) .* sign(d)) ;
+        else
+            y1 = bsxfun(@times, p * dzdy, abs(d).^(p-1) .* sign(d)) ;
+        end
     end
-  else
-    if p == 1
-      y1 = bsxfun(@times, dzdy, sign(d)) ;
-    elseif p == 2
-      y1 = bsxfun(@times, 2 * dzdy, d) ;
-    elseif p < 1
-      y1 = bsxfun(@times, p * dzdy, max(abs(d), opts.epsilon).^(p-1) .* sign(d)) ;
-    else
-      y1 = bsxfun(@times, p * dzdy, abs(d).^(p-1) .* sign(d)) ;
-    end
-  end
 end
 
 if isempty(dzdy)
-  if ~isempty(opts.instanceWeights)
-    y1 = bsxfun(@times, opts.instanceWeights, y1) ;
-  end
-  if opts.aggregate
-    y1 = sum(y1(:)) ;
-  end
+    y1 = bsxfun(@times, instanceWeights, y1) ;
+    if opts.aggregate
+        y1 = sum(y1(:)) ;
+    end
 end
 if ~isempty(dzdy), y2 = -y1; end

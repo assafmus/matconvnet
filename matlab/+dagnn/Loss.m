@@ -14,7 +14,7 @@ classdef Loss < dagnn.ElementWise
       outputs{1} = vl_nnloss(inputs{1}, inputs{2}, [], 'loss', obj.loss, obj.opts{:}) ;
       n = obj.numAveraged ;
       m = n + gather(sum(inputs{2}(:) ~= 0));
-      obj.average = (n * obj.average + gather(outputs{1})) / m ;
+      obj.average = (n * obj.average + gather(outputs{1})) / (m+~m) ;
       obj.numAveraged = m ;
     end
 

@@ -132,6 +132,7 @@ opts.threshold = 0 ;
 opts.loss = 'softmaxlog' ;
 opts.topK = 5 ;
 opts.positiveClass = [];
+opts.hard = [];
 opts = vl_argparse(opts, varargin, 'nonrecursive') ;
 
 inputSize = [size(X,1) size(X,2) size(X,3) size(X,4)] ;
@@ -163,12 +164,12 @@ switch lower(opts.loss)
             instanceWeights = cast(c(:,:,1,:) ~= 0, 'like', c) ;
         end
         
-    case {'falsenegative'}
+    case {'miss'}
         % there must be one categorical label per prediction vector
         assert(labelSize(3) == 1) ;        
         instanceWeights = cast(c(:,:,1,:) == opts.positiveClass, 'like', c) ;
         
-    case {'falsepositive'}
+    case {'fppi'}
         % there must be one categorical label per prediction vector
         assert(labelSize(3) == 1) ;
         [~,chat] = max(X,[],3) ;
@@ -235,7 +236,7 @@ end
 
 if nargin <= 2 || isempty(dzdy)
     switch lower(opts.loss)
-        case {'classerror', 'falsenegative', 'falsepositive'}
+        case {'classerror', 'miss', 'fppi'}
             [~,chat] = max(X,[],3) ;
             t = cast(c ~= chat, 'like', c) ;
         case 'topkerror'
@@ -267,6 +268,10 @@ if nargin <= 2 || isempty(dzdy)
     end
     if ~isempty(instanceWeights)
         Y = instanceWeights(:)' * t(:) ;
+        if strcmpi(opts.loss, 'miss')
+            w = sum(instanceWeights(:));
+            Y = Y / (w+~w) * size(X,4);
+        end
     else
         Y = sum(t(:));
     end
@@ -308,6 +313,33 @@ else
             Y = - dzdy .* c ./ (1 + exp(c.*X)) ;
         case 'hinge'
             Y = - dzdy .* c .* (c.*X < 1) ;
+    end
+    
+    if ~isempty(opts.hard)
+        h = 0;
+        N = size(X,4);
+%         B = opts.hard/N;
+%         for i = 1 : N
+%             tmp = abs(Y(:,:,end,i));
+%             [~,ord] = sort(tmp(:), 'descend');
+%             Y(ord(B+1:end),:,:,i) = 0;
+%             tmp = c(:,:,:,i);
+%             h=h+hist(tmp(ord(1:B)),[1:max(c(:))]);
+%         end
+
+        for i = 1 : N
+            tmp = sum(abs(Y(:,:,:,i)),3);
+            c_tmp = c(:,:,:,i);
+            tmp(c_tmp==2)=inf;
+            B = sum(c_tmp(:)==2)*(1+opts.hard);
+            [~,ord] = sort(tmp(:), 'descend');
+            Y(ord(B+1:end),:,:,i) = 0;
+            
+            h=h+hist(c_tmp(ord(1:B)),[1:max(c(:))]);
+        end
+        fprintf(' [%d', h(1));
+        fprintf(',%d', h(2:end));
+        fprintf(']');
     end
 end
 

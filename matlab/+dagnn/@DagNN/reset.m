@@ -6,7 +6,7 @@ function reset(obj)
 
 [obj.vars.value] = deal([]) ;
 [obj.vars.der] = deal([]) ;
-[obj.params.der] = deal([]) ;
+if ~isempty(obj.params), [obj.params.der] = deal([]) ; end;
 for l = 1:numel(obj.layers)
   obj.layers(l).block.reset() ;
 end

@@ -134,6 +134,7 @@ classdef DagNN < matlab.mixin.Copyable
 
     % Manipualte the DagNN
     addLayer(obj, name, block, inputs, outputs, params, varargin)
+    addLayersFromSimpleNN(obj, net, varargin)
     removeLayer(obj, name)
     setLayerInputs(obj, leyer, inputs)
     setLayerOutput(obj, layer, outputs)

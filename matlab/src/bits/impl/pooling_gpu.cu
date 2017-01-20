@@ -158,7 +158,7 @@ pooling_max_backward_with_pooled_data
   }
 }
 #endif
-
+/*
 // an implementation of atomicAdd() for double (really slow)
 __device__ double atomicAdd(double* address, double val)
 {
@@ -172,7 +172,7 @@ __device__ double atomicAdd(double* address, double val)
   } while (assumed != old);
   return __longlong_as_double(old);
 }
-
+*/
 template<typename T> __global__ void
 pooling_max_backward_kernel
 (T* derData,

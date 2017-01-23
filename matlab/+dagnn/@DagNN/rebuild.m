@@ -22,7 +22,7 @@ end
 
 [obj.vars.fanin] = tolist(num2cell(varFanIn)) ;
 [obj.vars.fanout] = tolist(num2cell(varFanOut)) ;
-if ~isempty(parFanOut), 
+if ~isempty(parFanOut)
   [obj.params.fanout] = tolist(num2cell(parFanOut)) ;
 end
 
@@ -68,7 +68,7 @@ for l = 1:numel(obj.layers)
   end
 end
 if any(order == -1)
-  warning('The network grpah contains a cycle') ;
+  warning('The network graph contains a cycle') ;
 end
 [~,order] = sort(order, 'descend') ;
 
@@ -91,5 +91,7 @@ for o = obj.layers(layer).outputIndexes ;
 end
 order(layer) = n + 1 ;
 
+% --------------------------------------------------------------------
 function varargout = tolist(x)
+% --------------------------------------------------------------------
 [varargout{1:numel(x)}] = x{:} ;

@@ -15,6 +15,7 @@ vl_argparse.m \
 vl_compilenn.m \
 vl_imreadjpeg.m \
 vl_nnbnorm.m \
+vl_nnbilinearsampler.m \
 vl_nnconcat.m \
 vl_nnconv.m \
 vl_nnconvt.m \
@@ -27,6 +28,7 @@ vl_nnnormalizelp.m \
 vl_nnpdist.m \
 vl_nnpool.m \
 vl_nnrelu.m \
+vl_nnroipool.m \
 vl_nnsigmoid.m \
 vl_nnsoftmax.m \
 vl_nnsoftmaxloss.m \
@@ -34,6 +36,9 @@ vl_nnspnorm.m \
 vl_rootnn.m \
 vl_setupnn.m \
 vl_imreadjpeg.m \
+vl_imreadjpeg.m \
+vl_taccum.m \
+vl_tmove.m \
 simplenn/vl_simplenn.m \
 simplenn/vl_simplenn_diagnose.m \
 simplenn/vl_simplenn_tidy.m \
@@ -60,8 +65,9 @@ bootstrap=$(node_modules)/bootstrap/dist/css/bootstrap.min.css
 doc: doc-site doc-manual
 doc-site: doc/site/site/index.html
 doc-manual: doc/matconvnet-manual.pdf
+doc-arxiv: doc/matconvnet-manual.tar.gz
 
-doc/matconvnet-manual.pdf : doc/matconvnet-manual.tex $(svg_tgt)
+doc/matconvnet-manual.pdf : doc/matconvnet-manual.tex doc/*.tex doc/*.bib $(svg_tgt)
 	mkdir -p doc/.build
 	ln -sf ../references.bib doc/.build/references.bib
 	cd "$(dir $(<))" ;\
@@ -71,6 +77,11 @@ doc/matconvnet-manual.pdf : doc/matconvnet-manual.tex $(svg_tgt)
 	$(PDFLATEX) -file-line-error -output-directory=../doc/.build/ "$(notdir $(<))" ;\
 	$(PDFLATEX) -file-line-error -output-directory=../doc/.build/ "$(notdir $(<))" ;
 	cp -f doc/.build/matconvnet-manual.pdf doc/
+
+doc/matconvnet-manual.tar.gz : doc/*.tex doc/figures/*.pdf doc/figures/svg/*.pdf
+	cd doc ; cp .build/matconvnet-manual.bbl .;\
+	tar czvf matconvnet-manual.tar.gz $(^:doc/%=%) matconvnet-manual.bbl
+	rm doc/matconvnet-manual.bbl
 
 doc/figures/svg/%.pdf : doc/figures/svg/%.svg
 	$(SVG2PDF) "$(<)" "$(@)"
@@ -119,7 +130,7 @@ doc-info:
 	@echo "mfile_doc=$(mfile_doc)"
 	@echo "svg_tgt=$(svg_tgt)"
 
-doc-serve:
+doc-serve: doc
 	cd doc/site ; $(MKDOCS) serve
 
 data/models/%.dot : data/models/%.mat

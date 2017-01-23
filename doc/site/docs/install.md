@@ -32,6 +32,7 @@ compiling MatConvNet using the MATLAB function
 method,
 [the command line or an IDE can be used as well](install-alt.md).
 
+
 <a name='cpu'></a>
 ### Compiling for CPU
 
@@ -42,6 +43,21 @@ library:
 
 1.  Make sure that MATLAB is
     [configured to use your compiler](http://www.mathworks.com/help/matlab/matlab_external/changing-default-compiler.html).
+
+    For Ubuntu/Debian like distributions this means to install
+    the following packages:
+    ```
+    sudo apt-get install build-essential libjpeg-turbo8-dev
+    ```
+    And for Fedora/Centos/RedHat distributions to install the following packages:
+    ```
+    sudo yum install gcc gcc-c++ libjpeg-turbo-devel
+    ```
+
+    For Windows platform, you need to install Visual Studio (at least 2010).
+
+    Before running `vl_compilenn`, **don't forget to run `mex -setup` in MATLAB**.
+
 2.  Open MATLAB and issue the commands:
 
         > cd <MatConvNet>
@@ -70,7 +86,7 @@ Increase the verbosity level to 2 to get even more information.
 <a name='gpu'></a>
 ### Compiling the GPU support
 
-To use the the GPU-accelerated version of the library, you will need a
+To use the GPU-accelerated version of the library, you will need a
 NVIDA GPU card with compute capability 2.0 or greater and a copy of
 the NVIDIA CUDA toolkit. Ideally, the version of the CUDA toolkit
 should match your MATLAB version:
@@ -177,7 +193,7 @@ example, on Mac this may look like:
     > vl_compilenn('enableGpu', true, ...
                    'cudaRoot', '/Developer/NVIDIA/CUDA-7.5', ...
                    'cudaMethod', 'nvcc', ...
-                   'enableCudnn', 'true', ...
+                   'enableCudnn', true, ...
                    'cudnnRoot', 'local/cudnn-rc4') ;
 
 MatConvNet is now compiled with cuDNN support. When starting MATLAB,
@@ -216,5 +232,3 @@ Using MATLAB 2015b, CUDA 7.5, and cuDNN R4:
                    'cudaRoot', '/opt/local/cuda-7.5', ...
                    'enableCudnn', true, ...
                    'cudnnRoot', 'local/cudnn-rc4') ;
-
-

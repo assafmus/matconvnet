@@ -45,8 +45,14 @@ function obj = fromSimpleNN(net, varargin)
 % This file is part of the VLFeat library and is made available under
 % the terms of the BSD license (see the COPYING file).
 
+opts.canonicalNames = false ;
+opts = vl_argparse(opts, varargin) ;
+
 import dagnn.*
+
 obj = DagNN() ;
+net = vl_simplenn_move(net, 'cpu') ;
+net = vl_simplenn_tidy(net) ;
 
 % copy meta-information as is
 obj.meta = net.meta ;

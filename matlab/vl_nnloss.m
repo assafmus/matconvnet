@@ -154,15 +154,15 @@ instanceWeights = [];
 % work around a bug in MATLAB, where native cast() would slow
 % progressively
 if isa(x, 'gpuArray')
-  switch classUnderlying(x) ;
-    case 'single', cast = @(z) single(z) ;
-    case 'double', cast = @(z) double(z) ;
-  end
+    switch classUnderlying(x) ;
+        case 'single', cast = @(z) single(z) ;
+        case 'double', cast = @(z) double(z) ;
+    end
 else
-  switch class(x)
-    case 'single', cast = @(z) single(z) ;
-    case 'double', cast = @(z) double(z) ;
-  end
+    switch class(x)
+        case 'single', cast = @(z) single(z) ;
+        case 'double', cast = @(z) double(z) ;
+    end
 end
 
 labelSize = [size(c,1) size(c,2) size(c,3) size(c,4)] ;
@@ -175,23 +175,23 @@ switch lower(opts.loss)
         
         if hasIgnoreLabel
             % null labels denote instances that should be skipped
-      instanceWeights = cast(c(:,:,1,:) ~= 0) ;
+            instanceWeights = cast(c(:,:,1,:) ~= 0) ;
         end
         
     case {'miss'}
         % there must be one categorical label per prediction vector
-        assert(labelSize(3) == 1) ;        
-        instanceWeights = cast(c(:,:,1,:) == opts.positiveClass, 'like', c) ;
+        assert(labelSize(3) == 1) ;
+        instanceWeights = cast(c(:,:,1,:) == opts.positiveClass) ;
         
     case {'fppi'}
         % there must be one categorical label per prediction vector
         assert(labelSize(3) == 1) ;
-        [~,chat] = max(X,[],3) ;
+        [~,chat] = max(x,[],3) ;
         
         fp = c(:,:,1,:) ~= 0 & c(:,:,1,:) ~= opts.positiveClass & ...
             (chat(:,:,1,:) == opts.positiveClass | chat(:,:,1,:) == c(:,:,1,:));
         
-        instanceWeights = cast(fp, 'like', c) ;
+        instanceWeights = cast(fp) ;
         
     case {'binaryerror', 'binarylog', 'logistic', 'hinge'}
         
@@ -200,7 +200,7 @@ switch lower(opts.loss)
         
         if hasIgnoreLabel
             % null labels denote instances that should be skipped
-      instanceWeights = cast(c ~= 0) ;
+            instanceWeights = cast(c ~= 0) ;
         end
         
     otherwise
@@ -251,43 +251,43 @@ end
 if nargin <= 2 || isempty(dzdy)
     switch lower(opts.loss)
         case {'classerror', 'miss', 'fppi'}
-      [~,chat] = max(x,[],3) ;
-      t = cast(c ~= chat) ;
+            [~,chat] = max(x,[],3) ;
+            t = cast(c ~= chat) ;
         case 'topkerror'
-      [~,predictions] = sort(x,3,'descend') ;
+            [~,predictions] = sort(x,3,'descend') ;
             t = 1 - sum(bsxfun(@eq, c, predictions(:,:,1:opts.topK,:)), 3) ;
         case 'log'
-      t = - log(x(ci)) ;
+            t = - log(max(x(ci),eps)) ;
         case 'softmaxlog'
-      Xmax = max(x,[],3) ;
-      ex = exp(bsxfun(@minus, x, Xmax)) ;
-      t = Xmax + log(sum(ex,3)) - x(ci) ;
+            Xmax = max(x,[],3) ;
+            ex = exp(bsxfun(@minus, x, Xmax)) ;
+            t = Xmax + log(sum(ex,3)) - x(ci) ;
         case 'mhinge'
-      t = max(0, 1 - x(ci)) ;
+            t = max(0, 1 - x(ci)) ;
         case 'mshinge'
-      Q = x ;
+            Q = x ;
             Q(ci) = -inf ;
-      t = max(0, 1 - x(ci) + max(Q,[],3)) ;
+            t = max(0, 1 - x(ci) + max(Q,[],3)) ;
         case 'binaryerror'
-      t = cast(sign(x - opts.threshold) ~= c) ;
+            t = cast(sign(x - opts.threshold) ~= c) ;
         case 'binarylog'
-      t = -log(c.*(x-0.5) + 0.5) ;
+            t = -log(c.*(x-0.5) + 0.5) ;
         case 'logistic'
             %t = log(1 + exp(-c.*X)) ;
-      a = -c.*x ;
+            a = -c.*x ;
             b = max(0, a) ;
             t = b + log(exp(-b) + exp(a-b)) ;
         case 'hinge'
-      t = max(0, 1 - c.*x) ;
+            t = max(0, 1 - c.*x) ;
     end
     if ~isempty(instanceWeights)
-    y = instanceWeights(:)' * t(:) ;
+        y = instanceWeights(:)' * t(:) ;
         if strcmpi(opts.loss, 'miss')
             w = sum(instanceWeights(:));
-            Y = Y / (w+~w) * size(X,4);
+            y = y / (w+~w) * size(x,4);
         end
     else
-    y = sum(t(:));
+        y = sum(t(:));
     end
 else
     if ~isempty(instanceWeights)
@@ -295,68 +295,80 @@ else
     end
     switch lower(opts.loss)
         case {'classerror', 'topkerror'}
-      y = zerosLike(x) ;
+            y = zerosLike(x) ;
         case 'log'
-      y = zerosLike(x) ;
-      y(ci) = - dzdy ./ max(x(ci), 1e-8) ;
+            y = zerosLike(x) ;
+            y(ci) = - dzdy ./ max(x(ci), 1e-8) ;
         case 'softmaxlog'
-      Xmax = max(x,[],3) ;
-      ex = exp(bsxfun(@minus, x, Xmax)) ;
-      y = bsxfun(@rdivide, ex, sum(ex,3)) ;
-      y(ci) = y(ci) - 1 ;
-      y = bsxfun(@times, dzdy, y) ;
+            Xmax = max(x,[],3) ;
+            ex = exp(bsxfun(@minus, x, Xmax)) ;
+            y = bsxfun(@rdivide, ex, sum(ex,3)) ;
+            y(ci) = y(ci) - 1 ;
+            y = bsxfun(@times, dzdy, y) ;
         case 'mhinge'
-      y = zerosLike(x) ;
-      y(ci) = - dzdy .* (x(ci) < 1) ;
+            y = zerosLike(x) ;
+            y(ci) = - dzdy .* (x(ci) < 1) ;
         case 'mshinge'
-      Q = x ;
+            Q = x ;
             Q(ci) = -inf ;
             [~, q] = max(Q,[],3) ;
             qi = offset + numPixelsPerImage * (q - 1) ;
-      W = dzdy .* (x(ci) - x(qi) < 1) ;
-      y = zerosLike(x) ;
-      y(ci) = - W ;
-      y(qi) = + W ;
+            W = dzdy .* (x(ci) - x(qi) < 1) ;
+            y = zerosLike(x) ;
+            y(ci) = - W ;
+            y(qi) = + W ;
+            dz = sum(abs(y),3)/2;
+            dz = accumarray(c(:)+1, dz(:));
+            fprintf(' [%d', dz(2));
+            fprintf(',%d', dz(3:end));
+            fprintf(']');
         case 'binaryerror'
-      y = zerosLike(x) ;
+            y = zerosLike(x) ;
         case 'binarylog'
-      y = - dzdy ./ (x + (c-1)*0.5) ;
+            y = - dzdy ./ (x + (c-1)*0.5) ;
         case 'logistic'
             % t = exp(-Y.*X) / (1 + exp(-Y.*X)) .* (-Y)
             % t = 1 / (1 + exp(Y.*X)) .* (-Y)
-      y = - dzdy .* c ./ (1 + exp(c.*x)) ;
+            y = - dzdy .* c ./ (1 + exp(c.*x)) ;
         case 'hinge'
-      y = - dzdy .* c .* (c.*x < 1) ;
+            y = - dzdy .* c .* (c.*x < 1) ;
     end
     
-    if ~isempty(opts.hard)
+    if ~isempty(opts.hard) && opts.hard > 0
         h = 0;
-        N = size(X,4);
-%         B = opts.hard/N;
-%         for i = 1 : N
-%             tmp = abs(Y(:,:,end,i));
-%             [~,ord] = sort(tmp(:), 'descend');
-%             Y(ord(B+1:end),:,:,i) = 0;
-%             tmp = c(:,:,:,i);
-%             h=h+hist(tmp(ord(1:B)),[1:max(c(:))]);
-%         end
-
+        N = size(x,4);
+        %         B = opts.hard/N;
+        %         for i = 1 : N
+        %             tmp = abs(Y(:,:,end,i));
+        %             [~,ord] = sort(tmp(:), 'descend');
+        %             Y(ord(B+1:end),:,:,i) = 0;
+        %             tmp = c(:,:,:,i);
+        %             h=h+hist(tmp(ord(1:B)),[1:max(c(:))]);
+        %         end
+        
         for i = 1 : N
-            tmp = sum(abs(Y(:,:,:,i)),3);
+            tmp = sum(abs(y(:,:,:,i)),3);
+            %tmp = rand(size(tmp)); % DEBUG, random 3:1, not hard
             c_tmp = c(:,:,:,i);
             tmp(c_tmp==2)=inf;
             B = sum(c_tmp(:)==2)*(1+opts.hard);
             [~,ord] = sort(tmp(:), 'descend');
-            Y(ord(B+1:end),:,:,i) = 0;
+            y(ord(B+1:end),:,:,i) = 0;
             
             h=h+hist(c_tmp(ord(1:B)),[1:max(c(:))]);
         end
         fprintf(' [%d', h(1));
         fprintf(',%d', h(2:end));
         fprintf(']');
+        
+        tmp = sum(abs(y),3);
+        fprintf(' [%f,%f]', sum(tmp(c==1)), sum(tmp(c==2)))
     end
 end
 
+if gather(any(isinf(y(:))))
+   error('here'); 
+end
 % --------------------------------------------------------------------
 function y = zerosLike(x)
 % --------------------------------------------------------------------

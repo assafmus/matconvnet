@@ -131,7 +131,8 @@ opts.classWeights = [] ;
 opts.threshold = 0 ;
 opts.loss = 'softmaxlog' ;
 opts.topK = 5 ;
-opts.positiveClass = [];
+% opts.positiveClass = []; 
+opts.negativeClass = 1;
 opts.hard = [];
 opts = vl_argparse(opts, varargin, 'nonrecursive') ;
 
@@ -154,7 +155,7 @@ instanceWeights = [];
 % work around a bug in MATLAB, where native cast() would slow
 % progressively
 if isa(x, 'gpuArray')
-    switch classUnderlying(x) ;
+    switch classUnderlying(x) 
         case 'single', cast = @(z) single(z) ;
         case 'double', cast = @(z) double(z) ;
     end
@@ -181,15 +182,15 @@ switch lower(opts.loss)
     case {'miss'}
         % there must be one categorical label per prediction vector
         assert(labelSize(3) == 1) ;
-        instanceWeights = cast(c(:,:,1,:) == opts.positiveClass) ;
-        
+        instanceWeights = cast(c(:,:,1,:) ~= opts.negativeClass & c(:,:,1,:) ~= 0) ;
+
     case {'fppi'}
         % there must be one categorical label per prediction vector
         assert(labelSize(3) == 1) ;
         [~,chat] = max(x,[],3) ;
         
-        fp = c(:,:,1,:) ~= 0 & c(:,:,1,:) ~= opts.positiveClass & ...
-            (chat(:,:,1,:) == opts.positiveClass | chat(:,:,1,:) == c(:,:,1,:));
+        fp = c(:,:,1,:) ~= 0 & c(:,:,1,:) == opts.negativeClass & ...
+            (chat(:,:,1,:) ~= opts.negativeClass | chat(:,:,1,:) == c(:,:,1,:));
         
         instanceWeights = cast(fp) ;
         
@@ -337,32 +338,19 @@ else
     if ~isempty(opts.hard) && opts.hard > 0
         h = 0;
         N = size(x,4);
-        %         B = opts.hard/N;
-        %         for i = 1 : N
-        %             tmp = abs(Y(:,:,end,i));
-        %             [~,ord] = sort(tmp(:), 'descend');
-        %             Y(ord(B+1:end),:,:,i) = 0;
-        %             tmp = c(:,:,:,i);
-        %             h=h+hist(tmp(ord(1:B)),[1:max(c(:))]);
-        %         end
-        
         for i = 1 : N
             tmp = sum(abs(y(:,:,:,i)),3);
-            %tmp = rand(size(tmp)); % DEBUG, random 3:1, not hard
             c_tmp = c(:,:,:,i);
-            tmp(c_tmp==2)=inf;
-            B = sum(c_tmp(:)==2)*(1+opts.hard);
+            tmp(c_tmp>1)=inf;
+            B = max(sum(c_tmp(:)>1)*(1+opts.hard),64); % Leave at least 64 samples from every image
             [~,ord] = sort(tmp(:), 'descend');
             y(ord(B+1:end),:,:,i) = 0;
             
-            h=h+hist(c_tmp(ord(1:B)),[1:max(c(:))]);
+            h=h+hist(c_tmp(ord(1:B)),0:size(x,3));
         end
-        fprintf(' [%d', h(1));
-        fprintf(',%d', h(2:end));
+        fprintf(' [%d', h(2));
+        fprintf(',%d', h(3:end));
         fprintf(']');
-        
-        tmp = sum(abs(y),3);
-        fprintf(' [%f,%f]', sum(tmp(c==1)), sum(tmp(c==2)))
     end
 end
 

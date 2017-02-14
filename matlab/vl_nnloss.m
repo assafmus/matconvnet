@@ -131,9 +131,12 @@ opts.classWeights = [] ;
 opts.threshold = 0 ;
 opts.loss = 'softmaxlog' ;
 opts.topK = 5 ;
-% opts.positiveClass = []; 
+% opts.positiveClass = [];
 opts.negativeClass = 1;
+opts.minNegPerImage = 0;
+opts.maxNegPerImage = [];
 opts.hard = [];
+opts.posNegRatio = [];
 opts = vl_argparse(opts, varargin, 'nonrecursive') ;
 
 inputSize = [size(x,1) size(x,2) size(x,3) size(x,4)] ;
@@ -155,7 +158,7 @@ instanceWeights = [];
 % work around a bug in MATLAB, where native cast() would slow
 % progressively
 if isa(x, 'gpuArray')
-    switch classUnderlying(x) 
+    switch classUnderlying(x)
         case 'single', cast = @(z) single(z) ;
         case 'double', cast = @(z) double(z) ;
     end
@@ -183,7 +186,7 @@ switch lower(opts.loss)
         % there must be one categorical label per prediction vector
         assert(labelSize(3) == 1) ;
         instanceWeights = cast(c(:,:,1,:) ~= opts.negativeClass & c(:,:,1,:) ~= 0) ;
-
+        
     case {'fppi'}
         % there must be one categorical label per prediction vector
         assert(labelSize(3) == 1) ;
@@ -320,9 +323,6 @@ else
             y(qi) = + W ;
             dz = sum(abs(y),3)/2;
             dz = accumarray(c(:)+1, dz(:));
-            fprintf(' [%d', dz(2));
-            fprintf(',%d', dz(3:end));
-            fprintf(']');
         case 'binaryerror'
             y = zerosLike(x) ;
         case 'binarylog'
@@ -342,7 +342,7 @@ else
             tmp = sum(abs(y(:,:,:,i)),3);
             c_tmp = c(:,:,:,i);
             tmp(c_tmp>1)=inf;
-            B = max(sum(c_tmp(:)>1)*(1+opts.hard),64); % Leave at least 64 samples from every image
+            B = max(sum(c_tmp(:)>1)*(1+opts.hard),opts.minNegPerImage); % Leave at least 16 samples from every image
             [~,ord] = sort(tmp(:), 'descend');
             y(ord(B+1:end),:,:,i) = 0;
             
@@ -352,10 +352,46 @@ else
         fprintf(',%d', h(3:end));
         fprintf(']');
     end
+    
+    if ~isempty(opts.maxNegPerImage)
+        h = 0;
+        N = size(x,4);
+        for i = 1 : N
+            c_tmp = c(:,:,:,i);
+            tmp = rand(size(c_tmp));
+            tmp(c_tmp>1)=inf;
+            tmp(c_tmp==0)=-inf;
+            B = opts.maxNegPerImage + sum(c_tmp(:)>1);
+            [~,ord] = sort(tmp(:), 'descend');
+            y(ord(B+1:end),:,:,i) = 0;
+            h=h+hist(c_tmp(ord(1:B)),0:size(x,3));
+        end
+        fprintf(' [%d', h(2));
+        fprintf(',%d', h(3:end));
+        fprintf(']');
+    end
+    
+    if ~isempty(opts.posNegRatio)
+        h = 0;
+        N = size(x,4);
+        for i = 1 : N
+            c_tmp = c(:,:,:,i);
+            tmp = rand(size(c_tmp));
+            tmp(c_tmp>1)=inf;
+            tmp(c_tmp==0)=-inf;
+            B = (1+opts.posNegRatio) * sum(c_tmp(:)>1);
+            [~,ord] = sort(tmp(:), 'descend');
+            y(ord(B+1:end),:,:,i) = 0;
+            h=h+hist(c_tmp(ord(1:B)),0:size(x,3));
+        end
+        fprintf(' [%d', h(2));
+        fprintf(',%d', h(3:end));
+        fprintf(']');        
+    end
 end
 
 if gather(any(isinf(y(:))))
-   error('here'); 
+    error('here');
 end
 % --------------------------------------------------------------------
 function y = zerosLike(x)

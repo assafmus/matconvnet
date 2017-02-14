@@ -365,9 +365,11 @@ end
 % -------------------------------------------------------------------------
 function stats = extractStats(stats, net)
 % -------------------------------------------------------------------------
-sel = find(cellfun(@(x) isa(x,'dagnn.Loss') || isa(x,'dagnn.PDist') || isa(x,'dagnn.IoULoss'), {net.layers.block})) ;
+sel = find(cellfun(@(x) isa(x,'dagnn.Loss') || isa(x,'dagnn.PDist') || isa(x,'dagnn.IoULoss') || isa(x,'dagnn.ROC'), {net.layers.block})) ;
 for i = 1:numel(sel)
-  stats.(net.layers(sel(i)).outputs{1}) = net.layers(sel(i)).block.average ;
+    for j = 1 : numel(net.layers(sel(i)).outputs)
+        stats.(net.layers(sel(i)).outputs{j}) = net.layers(sel(i)).block.average(j) ;
+    end
 end
 
 % -------------------------------------------------------------------------

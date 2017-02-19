@@ -137,6 +137,7 @@ opts.minNegPerImage = 0;
 opts.maxNegPerImage = [];
 opts.hard = [];
 opts.posNegRatio = [];
+opts.negsFromAllBatch = []; % TODO: Delete (legacy)
 opts = vl_argparse(opts, varargin, 'nonrecursive') ;
 
 inputSize = [size(x,1) size(x,2) size(x,3) size(x,4)] ;
@@ -224,7 +225,7 @@ end
 if ~isempty(opts.classWeights)
     % important: this code needs to broadcast opts.instanceWeights to
     % an array of the same size as c
-    classWeights = [0; opts.classWeights(:)];
+    classWeights = permute([0; opts.classWeights(:)],[4 3 2 1]);
     if isempty(instanceWeights)
         instanceWeights = bsxfun(@times, onesLike(c), classWeights(c+1)) ;
     else
@@ -284,6 +285,9 @@ if nargin <= 2 || isempty(dzdy)
         case 'hinge'
             t = max(0, 1 - c.*x) ;
     end
+    
+    t(any(isnan(x),3)) = 0;
+    
     if ~isempty(instanceWeights)
         y = instanceWeights(:)' * t(:) ;
         if strcmpi(opts.loss, 'miss')
@@ -335,23 +339,25 @@ else
             y = - dzdy .* c .* (c.*x < 1) ;
     end
     
-    if ~isempty(opts.hard) && opts.hard > 0
-        h = 0;
-        N = size(x,4);
-        for i = 1 : N
-            tmp = sum(abs(y(:,:,:,i)),3);
-            c_tmp = c(:,:,:,i);
-            tmp(c_tmp>1)=inf;
-            B = max(sum(c_tmp(:)>1)*(1+opts.hard),opts.minNegPerImage); % Leave at least 16 samples from every image
-            [~,ord] = sort(tmp(:), 'descend');
-            y(ord(B+1:end),:,:,i) = 0;
-            
-            h=h+hist(c_tmp(ord(1:B)),0:size(x,3));
-        end
-        fprintf(' [%d', h(2));
-        fprintf(',%d', h(3:end));
-        fprintf(']');
-    end
+    y(isnan(x)) = 0;
+     
+%     if ~isempty(opts.hard) && opts.hard > 0
+%         h = 0;
+%         N = size(x,4);
+%         for i = 1 : N
+%             tmp = sum(abs(y(:,:,:,i)),3);
+%             c_tmp = c(:,:,:,i);
+%             tmp(c_tmp>1)=inf;
+%             B = round(max(sum(c_tmp(:)>1)*(1+opts.hard),opts.minNegPerImage)); % Leave at least 16 samples from every image
+%             [~,ord] = sort(tmp(:), 'descend');
+%             y(ord(B+1:end),:,:,i) = 0;
+%             
+%             h=h+hist(c_tmp(ord(1:B)),0:size(x,3));
+%         end
+%         fprintf(' [%d', h(2));
+%         fprintf(',%d', h(3:end));
+%         fprintf(']');
+%     end
     
     if ~isempty(opts.maxNegPerImage)
         h = 0;
@@ -373,20 +379,30 @@ else
     
     if ~isempty(opts.posNegRatio)
         h = 0;
-        N = size(x,4);
-        for i = 1 : N
-            c_tmp = c(:,:,:,i);
-            tmp = rand(size(c_tmp));
-            tmp(c_tmp>1)=inf;
-            tmp(c_tmp==0)=-inf;
-            B = (1+opts.posNegRatio) * sum(c_tmp(:)>1);
+        if any(c(:)>1)
+            tmp = rand(size(c));
+            if ~isempty(opts.hard)
+                tmp2 = sum(abs(y),3);
+                tmp2(c~=1)=-inf;
+                [~,ord] = sort(tmp2,'descend');
+                B = (opts.posNegRatio*opts.hard) * sum(c(:)>1);
+                tmp(ord(1:B)) = 5;
+            end
+            tmp(c>1)=inf;
+            tmp(c==0)=-inf;
+            B = (1+opts.posNegRatio) * sum(c(:)>1);
             [~,ord] = sort(tmp(:), 'descend');
-            y(ord(B+1:end),:,:,i) = 0;
-            h=h+hist(c_tmp(ord(1:B)),0:size(x,3));
+            y = permute(y, [3 1 2 4]);
+            y(:,ord(B+1:end)) = 0;
+            y = permute(y, [2 3 1 4]);
+            h = accumarray(c(:)+1, reshape(~~sum(abs(y),3),[],1));
+        else
+            y(:) = 0;
+            h = zeros(1,size(x,3)+1);
         end
         fprintf(' [%d', h(2));
         fprintf(',%d', h(3:end));
-        fprintf(']');        
+        fprintf(']');
     end
 end
 

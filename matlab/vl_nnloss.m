@@ -159,15 +159,15 @@ hasIgnoreLabel = any(c(:) == 0);
 % work around a bug in MATLAB, where native cast() would slow
 % progressively
 if isa(x, 'gpuArray')
-  switch classUnderlying(x) ;
-    case 'single', cast = @(z) single(z) ;
-    case 'double', cast = @(z) double(z) ;
-  end
+    switch classUnderlying(x) ;
+        case 'single', cast = @(z) single(z) ;
+        case 'double', cast = @(z) double(z) ;
+    end
 else
-  switch class(x)
-    case 'single', cast = @(z) single(z) ;
-    case 'double', cast = @(z) double(z) ;
-  end
+    switch class(x)
+        case 'single', cast = @(z) single(z) ;
+        case 'double', cast = @(z) double(z) ;
+    end
 end
 
 labelSize = [size(c,1) size(c,2) size(c,3) size(c,4)] ;
@@ -175,15 +175,15 @@ assert(isequal(labelSize(1:2), inputSize(1:2))) ;
 assert(labelSize(4) == inputSize(4)) ;
 instanceWeights = [] ;
 switch lower(opts.loss)
-  case {'classerror', 'topkerror', 'log', 'softmaxlog', 'mhinge', 'mshinge'}
-    % there must be one categorical label per prediction vector
+    case {'classerror', 'topkerror', 'log', 'softmaxlog', 'mhinge', 'mshinge'}
+        % there must be one categorical label per prediction vector
         assert(labelSize(3) == 1) ;
-
-    if hasIgnoreLabel
-      % null labels denote instances that should be skipped
-      instanceWeights = cast(c(:,:,1,:) ~= 0) ;
-    end
-
+        
+        if hasIgnoreLabel
+            % null labels denote instances that should be skipped
+            instanceWeights = cast(c(:,:,1,:) ~= 0) ;
+        end
+        
     case {'binaryerror', 'binarylog', 'logistic', 'hinge'}
         
         % there must be one categorical label per prediction scalar
@@ -233,16 +233,16 @@ switch lower(opts.loss)
         n = reshape(0:numPixels-1,labelSize) ;
         offset = 1 + mod(n, numPixelsPerImage) + ...
             imageVolume * fix(n / numPixelsPerImage) ;
-    ci = offset + numPixelsPerImage * max(c - 1,0) ;
+        ci = offset + numPixelsPerImage * max(c - 1,0) ;
 end
 
 if nargin <= 2 || isempty(dzdy)
-  switch lower(opts.loss)
-    case 'classerror'
-      [~,chat] = max(x,[],3) ;
-      t = cast(c ~= chat) ;
-    case 'topkerror'
-      [~,predictions] = sort(x,3,'descend') ;
+    switch lower(opts.loss)
+        case 'classerror'
+            [~,chat] = max(x,[],3) ;
+            t = cast(c ~= chat) ;
+        case 'topkerror'
+            [~,predictions] = sort(x,3,'descend') ;
             t = 1 - sum(bsxfun(@eq, c, predictions(:,:,1:opts.topK,:)), 3) ;
         case 'log'
             t = - log(max(x(ci),eps)) ;
@@ -259,7 +259,7 @@ if nargin <= 2 || isempty(dzdy)
         case 'binaryerror'
             t = cast(sign(x - opts.threshold) ~= c) ;
         case 'binarylog'
-            t = -log(c.*(x-0.5) + 0.5) ;
+            t = -log(c.*(max(min(x,1-1e-6),1e-6)-0.5) + 0.5) ;
         case 'logistic'
             %t = log(1 + exp(-c.*X)) ;
             a = -c.*x ;
@@ -300,14 +300,14 @@ else
             Q(ci) = -inf ;
             [~, q] = max(Q,[],3) ;
             qi = offset + numPixelsPerImage * (q - 1) ;
-      W = dzdy .* (x(ci) - x(qi) < 1) ;
-      y = zerosLike(x) ;
-      y(ci) = - W ;
-      y(qi) = + W ;
-    case 'binaryerror'
-      y = zerosLike(x) ;
-    case 'binarylog'
-      y = - dzdy ./ (x + (c-1)*0.5) ;
+            W = dzdy .* (x(ci) - x(qi) < 1) ;
+            y = zerosLike(x) ;
+            y(ci) = - W ;
+            y(qi) = + W ;
+        case 'binaryerror'
+            y = zerosLike(x) ;
+        case 'binarylog'
+            y = - dzdy ./ (max(min(x,1-1e-6),1e-6) + (c-1)*0.5) ;
         case 'logistic'
             % t = exp(-Y.*X) / (1 + exp(-Y.*X)) .* (-Y)
             % t = 1 / (1 + exp(Y.*X)) .* (-Y)
@@ -337,31 +337,61 @@ else
     
     if ~isempty(opts.posNegRatio)
         h = 0;
-        if any(c(:)>1)
-            tmp = rand(size(c));
-            if ~isempty(opts.hard)
-                tmp2 = sum(abs(y),3);
-                tmp2(c~=1)=-inf;
-                [~,ord] = sort(tmp2,'descend');
-                B = (opts.posNegRatio*opts.hard) * sum(c(:)>1);
-                tmp(ord(1:B)) = 5;
+        
+        if ~strcmp(opts.loss, 'binarylog')
+            if any(c(:)>1)
+                tmp = rand(size(c));
+                if ~isempty(opts.hard)
+                    tmp2 = sum(abs(y),3);
+                    tmp2(c~=1)=-inf;
+                    [~,ord] = sort(tmp2,'descend');
+                    B = (opts.posNegRatio*opts.hard) * sum(c(:)>1);
+                    tmp(ord(1:B)) = 5;
+                end
+                tmp(c>1)=inf;
+                tmp(c==0)=-inf;
+                B = (1+opts.posNegRatio) * sum(c(:)>1);
+                [~,ord] = sort(tmp(:), 'descend');
+                y = permute(y, [3 1 2 4]);
+                y(:,ord(B+1:end)) = 0;
+                y = permute(y, [2 3 1 4]);
+                h = accumarray(c(:)+1, reshape(~~sum(abs(y),3),[],1));
+            else
+                y(:) = 0;
+                h = zeros(1,size(x,3)+1);
             end
-            tmp(c>1)=inf;
-            tmp(c==0)=-inf;
-            B = (1+opts.posNegRatio) * sum(c(:)>1);
-            [~,ord] = sort(tmp(:), 'descend');
-            y = permute(y, [3 1 2 4]);
-            y(:,ord(B+1:end)) = 0;
-            y = permute(y, [2 3 1 4]);
-            h = accumarray(c(:)+1, reshape(~~sum(abs(y),3),[],1));
         else
-            y(:) = 0;
-            h = zeros(1,size(x,3)+1);
+            if any(c(:)==1)
+                tmp = rand(size(c));
+                if ~isempty(opts.hard)
+                    tmp2 = sum(abs(y),3);
+                    tmp2(c~=-1)=-inf;
+                    [~,ord] = sort(tmp2,'descend');
+                    B = (opts.posNegRatio*opts.hard) * sum(c(:)==1);
+                    tmp(ord(1:B)) = 5;
+                end
+                tmp(c==1)=inf;
+                tmp(c==0)=-inf;
+                B = (1+opts.posNegRatio) * sum(c(:)==1);
+                [~,ord] = sort(tmp(:), 'descend');
+                y = permute(y, [3 1 2 4]);
+                y(:,ord(B+1:end)) = 0;
+                y = permute(y, [2 3 1 4]);
+                h = accumarray((abs(c(:))==1) + (c(:)==1) + 1, reshape(~~sum(abs(y),3),[],1));
+            else
+                y(:) = 0;
+                h = zeros(1,size(x,3)+1);
+            end
+            
         end
         fprintf(' [%d', h(2));
         fprintf(',%d', h(3:end));
         fprintf(']');
     end
+end
+
+if any(isinf(y(:)))
+   error('here');
 end
 
 % --------------------------------------------------------------------

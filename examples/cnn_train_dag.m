@@ -45,9 +45,9 @@ if isnan(opts.val), opts.val = [] ; end
 
 evaluateMode = isempty(opts.train) ;
 if ~evaluateMode
-  if isempty(opts.derOutputs)
-    error('DEROUTPUTS must be specified when training.\n') ;
-  end
+    if isempty(opts.derOutputs)
+        error('DEROUTPUTS must be specified when training.\n') ;
+    end
 end
 
 % -------------------------------------------------------------------------
@@ -60,85 +60,85 @@ modelPdfPath = fullfile(opts.expDir, 'net-train.pdf') ;
 
 start = opts.continue * findLastCheckpoint(opts.expDir) ;
 if start >= 1
-  fprintf('%s: resuming by loading epoch %d\n', mfilename, start) ;
-  [net, state, stats] = loadState(modelPath(start)) ;
+    fprintf('%s: resuming by loading epoch %d\n', mfilename, start) ;
+    [net, state, stats] = loadState(modelPath(start)) ;
 else
-  state = [] ;
+    state = [] ;
 end
 
 for epoch=start+1:opts.numEpochs
-
-  % Set the random seed based on the epoch and opts.randomSeed.
-  % This is important for reproducibility, including when training
-  % is restarted from a checkpoint.
-
-  rng(epoch + opts.randomSeed) ;
-  prepareGPUs(opts, epoch == start+1) ;
-
-  % Train for one epoch.
-  params = opts ;
-  params.epoch = epoch ;
-  params.learningRate = opts.learningRate(min(epoch, numel(opts.learningRate))) ;
-  params.train = opts.train(randperm(numel(opts.train))) ; % shuffle
-  params.val = opts.val(randperm(numel(opts.val))) ;
-  params.imdb = imdb ;
-  params.getBatch = getBatch ;
-
-  if numel(opts.gpus) <= 1
-    [net, state] = processEpoch(net, state, params, 'train') ;
-    [net, state] = processEpoch(net, state, params, 'val') ;
-    if ~evaluateMode
-      saveState(modelPath(epoch), net, state) ;
-    end
-    lastStats = state.stats ;
-  else
-    spmd
-      [net, state] = processEpoch(net, state, params, 'train') ;
-      [net, state] = processEpoch(net, state, params, 'val') ;
-      if labindex == 1 && ~evaluateMode
-        saveState(modelPath(epoch), net, state) ;
-      end
-      lastStats = state.stats ;
-    end
-    lastStats = accumulateStats(lastStats) ;
-  end
-
-  stats.train(epoch) = lastStats.train ;
-  stats.val(epoch) = lastStats.val ;
-  clear lastStats ;
-  saveStats(modelPath(epoch), stats) ;
-
-  if opts.plotStatistics
-    switchFigure(1) ; try, maximize(gcf); catch, end; clf ;
-    plots = setdiff(...
-      cat(2,...
-      fieldnames(stats.train)', ...
-      fieldnames(stats.val)'), {'num', 'time'}) ;
-    for p = plots
-      p = char(p) ;
-      values = zeros(0, epoch) ;
-      leg = {} ;
-      for f = {'train', 'val'}
-        f = char(f) ;
-        if isfield(stats.(f), p)
-          tmp = [stats.(f).(p)] ;
-          values(end+1,:) = tmp(1,:)' ;
-          leg{end+1} = f ;
+    
+    % Set the random seed based on the epoch and opts.randomSeed.
+    % This is important for reproducibility, including when training
+    % is restarted from a checkpoint.
+    
+    rng(epoch + opts.randomSeed) ;
+    prepareGPUs(opts, epoch == start+1) ;
+    
+    % Train for one epoch.
+    params = opts ;
+    params.epoch = epoch ;
+    params.learningRate = opts.learningRate(min(epoch, numel(opts.learningRate))) ;
+    params.train = opts.train(randperm(numel(opts.train))) ; % shuffle
+    params.val = opts.val(randperm(numel(opts.val))) ;
+    params.imdb = imdb ;
+    params.getBatch = getBatch ;
+    
+    if numel(opts.gpus) <= 1
+        [net, state] = processEpoch(net, state, params, 'train') ;
+        [net, state] = processEpoch(net, state, params, 'val') ;
+        if ~evaluateMode
+            saveState(modelPath(epoch), net, state) ;
         end
-      end
+        lastStats = state.stats ;
+    else
+        spmd
+            [net, state] = processEpoch(net, state, params, 'train') ;
+            [net, state] = processEpoch(net, state, params, 'val') ;
+            if labindex == 1 && ~evaluateMode
+                saveState(modelPath(epoch), net, state) ;
+            end
+            lastStats = state.stats ;
+        end
+        lastStats = accumulateStats(lastStats) ;
+    end
+    
+    stats.train(epoch) = lastStats.train ;
+    stats.val(epoch) = lastStats.val ;
+    clear lastStats ;
+    saveStats(modelPath(epoch), stats) ;
+    
+    if opts.plotStatistics
+        switchFigure(1) ; try, maximize(gcf); catch, end; clf ;
+        plots = setdiff(...
+            cat(2,...
+            fieldnames(stats.train)', ...
+            fieldnames(stats.val)'), {'num', 'time'}) ;
+        for p = plots
+            p = char(p) ;
+            values = zeros(0, epoch) ;
+            leg = {} ;
+            for f = {'train', 'val'}
+                f = char(f) ;
+                if isfield(stats.(f), p)
+                    tmp = [stats.(f).(p)] ;
+                    values(end+1,:) = tmp(1,:)' ;
+                    leg{end+1} = f ;
+                end
+            end
             ny = round(sqrt(numel(plots)/4*3));
             nx = ceil(numel(plots)/ny);
             subplot(ny,nx,find(strcmp(p,plots))) ;
-      plot(1:epoch, values','o-') ;
-      xlabel('epoch') ;
+            plot(1:epoch, values','o-') ;
+            xlabel('epoch') ;
             title(p,'Interpreter','none') ;
-      legend(leg{:}) ;
-      grid on ;
-    end
-    drawnow ;
+            %       legend(leg{:}) ;
+            grid on ;
+        end
+        drawnow ;
         print(1, modelPdfPath, '-dpdf') ;
         savefig(1, modelFigPath);
-  end
+    end
 end
 
 % With multiple GPUs, return one copy
@@ -153,31 +153,31 @@ function [net, state] = processEpoch(net, state, params, mode)
 
 % initialize with momentum 0
 if isempty(state) || isempty(state.momentum)
-  state.momentum = num2cell(zeros(1, numel(net.params))) ;
+    state.momentum = num2cell(zeros(1, numel(net.params))) ;
 end
 
 % move CNN  to GPU as needed
 numGpus = numel(params.gpus) ;
 if numGpus >= 1
-  net.move('gpu') ;
-  state.momentum = cellfun(@gpuArray, state.momentum, 'uniformoutput', false) ;
+    net.move('gpu') ;
+    state.momentum = cellfun(@gpuArray, state.momentum, 'uniformoutput', false) ;
 end
 if numGpus > 1
-  parserv = ParameterServer(params.parameterServer) ;
-  net.setParameterServer(parserv) ;
+    parserv = ParameterServer(params.parameterServer) ;
+    net.setParameterServer(parserv) ;
 else
-  parserv = [] ;
+    parserv = [] ;
 end
 
 % profile
 if params.profile
-  if numGpus <= 1
-    profile clear ;
-    profile on ;
-  else
-    mpiprofile reset ;
-    mpiprofile on ;
-  end
+    if numGpus <= 1
+        profile clear ;
+        profile on ;
+    else
+        mpiprofile reset ;
+        mpiprofile on ;
+    end
 end
 
 num = 0 ;
@@ -190,84 +190,84 @@ stats.time = 0 ;
 
 start = tic ;
 for t=1:params.batchSize:numel(subset)
-  fprintf('%s: epoch %02d: %3d/%3d:', mode, epoch, ...
-          fix((t-1)/params.batchSize)+1, ceil(numel(subset)/params.batchSize)) ;
-  batchSize = min(params.batchSize, numel(subset) - t + 1) ;
-
-  for s=1:params.numSubBatches
-    % get this image batch and prefetch the next
-    batchStart = t + (labindex-1) + (s-1) * numlabs ;
-    batchEnd = min(t+params.batchSize-1, numel(subset)) ;
-    batch = subset(batchStart : params.numSubBatches * numlabs : batchEnd) ;
-    num = num + numel(batch) ;
-    if numel(batch) == 0, continue ; end
-
-    inputs = params.getBatch(params.imdb, batch) ;
-
-    if params.prefetch
-      if s == params.numSubBatches
-        batchStart = t + (labindex-1) + params.batchSize ;
-        batchEnd = min(t+2*params.batchSize-1, numel(subset)) ;
-      else
-        batchStart = batchStart + numlabs ;
-      end
-      nextBatch = subset(batchStart : params.numSubBatches * numlabs : batchEnd) ;
-      params.getBatch(params.imdb, nextBatch) ;
+    fprintf('%s: epoch %02d: %3d/%3d:', mode, epoch, ...
+        fix((t-1)/params.batchSize)+1, ceil(numel(subset)/params.batchSize)) ;
+    batchSize = min(params.batchSize, numel(subset) - t + 1) ;
+    
+    for s=1:params.numSubBatches
+        % get this image batch and prefetch the next
+        batchStart = t + (labindex-1) + (s-1) * numlabs ;
+        batchEnd = min(t+params.batchSize-1, numel(subset)) ;
+        batch = subset(batchStart : params.numSubBatches * numlabs : batchEnd) ;
+        num = num + numel(batch) ;
+        if numel(batch) == 0, continue ; end
+        
+        inputs = params.getBatch(params.imdb, batch) ;
+        
+        if params.prefetch
+            if s == params.numSubBatches
+                batchStart = t + (labindex-1) + params.batchSize ;
+                batchEnd = min(t+2*params.batchSize-1, numel(subset)) ;
+            else
+                batchStart = batchStart + numlabs ;
+            end
+            nextBatch = subset(batchStart : params.numSubBatches * numlabs : batchEnd) ;
+            params.getBatch(params.imdb, nextBatch) ;
+        end
+        
+        if strcmp(mode, 'train')
+            net.mode = 'normal' ;
+            net.accumulateParamDers = (s ~= 1) ;
+            net.eval(inputs, params.derOutputs, 'holdOn', s < params.numSubBatches) ;
+        else
+            net.mode = 'test' ;
+            net.eval(inputs) ;
+        end
     end
-
+    
+    % Accumulate gradient.
     if strcmp(mode, 'train')
-      net.mode = 'normal' ;
-      net.accumulateParamDers = (s ~= 1) ;
-      net.eval(inputs, params.derOutputs, 'holdOn', s < params.numSubBatches) ;
-    else
-      net.mode = 'test' ;
-      net.eval(inputs) ;
+        if ~isempty(parserv), parserv.sync() ; end
+        state = accumulateGradients(net, state, params, batchSize, parserv) ;
     end
-  end
-
-  % Accumulate gradient.
-  if strcmp(mode, 'train')
-    if ~isempty(parserv), parserv.sync() ; end
-    state = accumulateGradients(net, state, params, batchSize, parserv) ;
-  end
-
-  % Get statistics.
-  time = toc(start) + adjustTime ;
-  batchTime = time - stats.time ;
-  stats.num = num ;
-  stats.time = time ;
-  stats = params.extractStatsFn(stats,net) ;
-  currentSpeed = batchSize / batchTime ;
-  averageSpeed = (t + batchSize - 1) / time ;
-  if t == 3*params.batchSize + 1
-    % compensate for the first three iterations, which are outliers
-    adjustTime = 4*batchTime - time ;
-    stats.time = time + adjustTime ;
-  end
-
-  fprintf(' %.1f (%.1f) Hz', averageSpeed, currentSpeed) ;
-  for f = setdiff(fieldnames(stats)', {'num', 'time'})
-    f = char(f) ;
-    fprintf(' %s: %.3f', f, stats.(f)) ;
-  end
-  fprintf('\n') ;
+    
+    % Get statistics.
+    time = toc(start) + adjustTime ;
+    batchTime = time - stats.time ;
+    stats.num = num ;
+    stats.time = time ;
+    stats = params.extractStatsFn(stats,net) ;
+    currentSpeed = batchSize / batchTime ;
+    averageSpeed = (t + batchSize - 1) / time ;
+    if t == 3*params.batchSize + 1
+        % compensate for the first three iterations, which are outliers
+        adjustTime = 4*batchTime - time ;
+        stats.time = time + adjustTime ;
+    end
+    
+    fprintf(' %.1f (%.1f) Hz', averageSpeed, currentSpeed) ;
+    for f = setdiff(fieldnames(stats)', {'num', 'time'})
+        f = char(f) ;
+        fprintf(' %s: %.3f', f, stats.(f)) ;
+    end
+    fprintf('\n') ;
 end
 
 % Save back to state.
 state.stats.(mode) = stats ;
 if params.profile
-  if numGpus <= 1
-    state.prof.(mode) = profile('info') ;
-    profile off ;
-  else
-    state.prof.(mode) = mpiprofile('info');
-    mpiprofile off ;
-  end
+    if numGpus <= 1
+        state.prof.(mode) = profile('info') ;
+        profile off ;
+    else
+        state.prof.(mode) = mpiprofile('info');
+        mpiprofile off ;
+    end
 end
 if ~params.saveMomentum
-  state.momentum = [] ;
+    state.momentum = [] ;
 else
-  state.momentum = cellfun(@gather, state.momentum, 'uniformoutput', false) ;
+    state.momentum = cellfun(@gather, state.momentum, 'uniformoutput', false) ;
 end
 
 net.reset() ;
@@ -280,53 +280,53 @@ numGpus = numel(params.gpus) ;
 otherGpus = setdiff(1:numGpus, labindex) ;
 
 for p=1:numel(net.params)
-
-  if ~isempty(parserv)
-    parDer = parserv.pullWithIndex(p) ;
-  else
-    parDer = net.params(p).der ;
-  end
-
-  switch net.params(p).trainMethod
-
-    case 'average' % mainly for batch normalization
-      thisLR = net.params(p).learningRate ;
-      net.params(p).value = vl_taccum(...
-          1 - thisLR, net.params(p).value, ...
-          (thisLR/batchSize/net.params(p).fanout),  parDer) ;
-
-    case 'gradient'
-      thisDecay = params.weightDecay * net.params(p).weightDecay ;
-      thisLR = params.learningRate * net.params(p).learningRate ;
-
-      if thisLR>0 || thisDecay>0
-        % Normalize gradient and incorporate weight decay.
-        parDer = vl_taccum(1/batchSize, parDer, ...
-                           thisDecay, net.params(p).value) ;
-
-        % Update momentum.
-        state.momentum{p} = vl_taccum(...
-          params.momentum, state.momentum{p}, ...
-          -1, parDer) ;
-
-        % Nesterov update (aka one step ahead).
-        if params.nesterovUpdate
-          delta = vl_taccum(...
-            params.momentum, state.momentum{p}, ...
-            -1, parDer) ;
-        else
-          delta = state.momentum{p} ;
-        end
-
-        % Update parameters.
-        net.params(p).value = vl_taccum(...
-          1,  net.params(p).value, thisLR, delta) ;
-      end
-    otherwise
-      error('Unknown training method ''%s'' for parameter ''%s''.', ...
-        net.params(p).trainMethod, ...
-        net.params(p).name) ;
-  end
+    
+    if ~isempty(parserv)
+        parDer = parserv.pullWithIndex(p) ;
+    else
+        parDer = net.params(p).der ;
+    end
+    
+    switch net.params(p).trainMethod
+        
+        case 'average' % mainly for batch normalization
+            thisLR = net.params(p).learningRate ;
+            net.params(p).value = vl_taccum(...
+                1 - thisLR, net.params(p).value, ...
+                (thisLR/batchSize/net.params(p).fanout),  parDer) ;
+            
+        case 'gradient'
+            thisDecay = params.weightDecay * net.params(p).weightDecay ;
+            thisLR = params.learningRate * net.params(p).learningRate ;
+            
+            if thisLR>0 || thisDecay>0
+                % Normalize gradient and incorporate weight decay.
+                parDer = vl_taccum(1/batchSize, parDer, ...
+                    thisDecay, net.params(p).value) ;
+                
+                % Update momentum.
+                state.momentum{p} = vl_taccum(...
+                    params.momentum, state.momentum{p}, ...
+                    -1, parDer) ;
+                
+                % Nesterov update (aka one step ahead).
+                if params.nesterovUpdate
+                    delta = vl_taccum(...
+                        params.momentum, state.momentum{p}, ...
+                        -1, parDer) ;
+                else
+                    delta = state.momentum{p} ;
+                end
+                
+                % Update parameters.
+                net.params(p).value = vl_taccum(...
+                    1,  net.params(p).value, thisLR, delta) ;
+            end
+        otherwise
+            error('Unknown training method ''%s'' for parameter ''%s''.', ...
+                net.params(p).trainMethod, ...
+                net.params(p).name) ;
+    end
 end
 
 % -------------------------------------------------------------------------
@@ -334,32 +334,32 @@ function stats = accumulateStats(stats_)
 % -------------------------------------------------------------------------
 
 for s = {'train', 'val'}
-  s = char(s) ;
-  total = 0 ;
-
-  % initialize stats stucture with same fields and same order as
-  % stats_{1}
-  stats__ = stats_{1} ;
-  names = fieldnames(stats__.(s))' ;
-  values = zeros(1, numel(names)) ;
-  fields = cat(1, names, num2cell(values)) ;
-  stats.(s) = struct(fields{:}) ;
-
-  for g = 1:numel(stats_)
-    stats__ = stats_{g} ;
-    num__ = stats__.(s).num ;
-    total = total + num__ ;
-
-    for f = setdiff(fieldnames(stats__.(s))', 'num')
-      f = char(f) ;
-      stats.(s).(f) = stats.(s).(f) + stats__.(s).(f) * num__ ;
-
-      if g == numel(stats_)
-        stats.(s).(f) = stats.(s).(f) / total ;
-      end
+    s = char(s) ;
+    total = 0 ;
+    
+    % initialize stats stucture with same fields and same order as
+    % stats_{1}
+    stats__ = stats_{1} ;
+    names = fieldnames(stats__.(s))' ;
+    values = zeros(1, numel(names)) ;
+    fields = cat(1, names, num2cell(values)) ;
+    stats.(s) = struct(fields{:}) ;
+    
+    for g = 1:numel(stats_)
+        stats__ = stats_{g} ;
+        num__ = stats__.(s).num ;
+        total = total + num__ ;
+        
+        for f = setdiff(fieldnames(stats__.(s))', 'num')
+            f = char(f) ;
+            stats.(s).(f) = stats.(s).(f) + stats__.(s).(f) * num__ ;
+            
+            if g == numel(stats_)
+                stats.(s).(f) = stats.(s).(f) / total ;
+            end
+        end
     end
-  end
-  stats.(s).num = total ;
+    stats.(s).num = total ;
 end
 
 % -------------------------------------------------------------------------
@@ -382,9 +382,9 @@ save(fileName, 'net', 'state') ;
 function saveStats(fileName, stats)
 % -------------------------------------------------------------------------
 if exist(fileName)
-  save(fileName, 'stats', '-append') ;
+    save(fileName, 'stats', '-append') ;
 else
-  save(fileName, 'stats') ;
+    save(fileName, 'stats') ;
 end
 
 % -------------------------------------------------------------------------
@@ -393,7 +393,7 @@ function [net, state, stats] = loadState(fileName)
 load(fileName, 'net', 'state', 'stats') ;
 net = dagnn.DagNN.loadobj(net) ;
 if isempty(whos('stats'))
-  error('Epoch ''%s'' was only partially saved. Delete this file and try again.', ...
+    error('Epoch ''%s'' was only partially saved. Delete this file and try again.', ...
         fileName) ;
 end
 
@@ -409,11 +409,11 @@ epoch = max([epoch 0]) ;
 function switchFigure(n)
 % -------------------------------------------------------------------------
 if get(0,'CurrentFigure') ~= n
-  try
-    set(0,'CurrentFigure',n) ;
-  catch
-    figure(n) ;
-  end
+    try
+        set(0,'CurrentFigure',n) ;
+    catch
+        figure(n) ;
+    end
 end
 
 % -------------------------------------------------------------------------
@@ -426,27 +426,27 @@ function prepareGPUs(opts, cold)
 % -------------------------------------------------------------------------
 numGpus = numel(opts.gpus) ;
 if numGpus > 1
-  % check parallel pool integrity as it could have timed out
-  pool = gcp('nocreate') ;
-  if ~isempty(pool) && pool.NumWorkers ~= numGpus
-    delete(pool) ;
-  end
-  pool = gcp('nocreate') ;
-  if isempty(pool)
-    parpool('local', numGpus) ;
-    cold = true ;
-  end
-
+    % check parallel pool integrity as it could have timed out
+    pool = gcp('nocreate') ;
+    if ~isempty(pool) && pool.NumWorkers ~= numGpus
+        delete(pool) ;
+    end
+    pool = gcp('nocreate') ;
+    if isempty(pool)
+        parpool('local', numGpus) ;
+        cold = true ;
+    end
+    
 end
 if numGpus >= 1 && cold
-  fprintf('%s: resetting GPU\n', mfilename)
-  clearMex() ;
-  if numGpus == 1
-    gpuDevice(opts.gpus)
-  else
-    spmd
-      clearMex() ;
-      gpuDevice(opts.gpus(labindex))
+    fprintf('%s: resetting GPU\n', mfilename)
+    clearMex() ;
+    if numGpus == 1
+        gpuDevice(opts.gpus)
+    else
+        spmd
+            clearMex() ;
+            gpuDevice(opts.gpus(labindex))
+        end
     end
-  end
 end

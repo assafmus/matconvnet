@@ -26,7 +26,8 @@ classdef PDist < dagnn.ElementWise
         function outputs = forward(obj, inputs, params)
             outputs{1} = vl_nnpdist(inputs{1}, inputs{2}, obj.p, 'noRoot', obj.noRoot, 'epsilon', obj.epsilon, 'aggregate', obj.aggregate, obj.opts{:}) ;
             n = obj.numAveraged ;
-            m = n + size(obj.net.getVar('input').value,4) ;
+            v = all(~isnan(inputs{2}),3);
+            m = n + sum(v(:)) ;
             obj.average = (n * obj.average + gather(outputs{1})) / m ;
             obj.numAveraged = m ;
         end

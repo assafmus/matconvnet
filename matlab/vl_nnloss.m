@@ -330,9 +330,9 @@ else
             y(ord(B+1:end),:,:,i) = 0;
             h=h+hist(c_tmp(ord(1:B)),0:size(x,3));
         end
-        fprintf(' [%d', h(2));
-        fprintf(',%d', h(3:end));
-        fprintf(']');
+%         fprintf(' [%d', h(2));
+%         fprintf(',%d', h(3:end));
+%         fprintf(']');
     end
     
     if ~isempty(opts.posNegRatio)
@@ -384,9 +384,9 @@ else
             end
             
         end
-        fprintf(' [%d', h(2));
-        fprintf(',%d', h(3:end));
-        fprintf(']');
+%         fprintf(' [%d', h(2));
+%         fprintf(',%d', h(3:end));
+%         fprintf(']');
     end
 end
 

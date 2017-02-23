@@ -27,7 +27,7 @@ classdef PDist < dagnn.ElementWise
             outputs{1} = vl_nnpdist(inputs{1}, inputs{2}, obj.p, 'noRoot', obj.noRoot, 'epsilon', obj.epsilon, 'aggregate', obj.aggregate, obj.opts{:}) ;
             n = obj.numAveraged ;
             v = all(~isnan(inputs{2}),3);
-            m = n + sum(v(:)) ;
+            m = n + gather(sum(v(:))) ;
             obj.average = (n * obj.average + gather(outputs{1})) / m ;
             obj.numAveraged = m ;
         end

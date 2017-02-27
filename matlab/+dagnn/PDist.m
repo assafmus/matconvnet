@@ -28,7 +28,7 @@ classdef PDist < dagnn.ElementWise
             n = obj.numAveraged ;
             v = all(~isnan(inputs{2}),3);
             m = n + gather(sum(v(:))) ;
-            obj.average = (n * obj.average + gather(outputs{1})) / m ;
+            obj.average = (n * obj.average + gather(outputs{1})) / (m + ~m) ;
             obj.numAveraged = m ;
         end
         

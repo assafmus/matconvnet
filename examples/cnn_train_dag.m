@@ -202,7 +202,7 @@ for t=1:params.batchSize:numel(subset)
         num = num + numel(batch) ;
         if numel(batch) == 0, continue ; end
         
-        inputs = params.getBatch(params.imdb, batch) ;
+        inputs = params.getBatch(net, params.imdb, batch) ;
         
         if params.prefetch
             if s == params.numSubBatches
@@ -212,7 +212,7 @@ for t=1:params.batchSize:numel(subset)
                 batchStart = batchStart + numlabs ;
             end
             nextBatch = subset(batchStart : params.numSubBatches * numlabs : batchEnd) ;
-            params.getBatch(params.imdb, nextBatch) ;
+            params.getBatch(net, params.imdb, nextBatch) ;
         end
         
         if strcmp(mode, 'train')

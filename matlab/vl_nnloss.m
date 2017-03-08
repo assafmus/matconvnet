@@ -269,7 +269,7 @@ if nargin <= 2 || isempty(dzdy)
             t = max(0, 1 - c.*x) ;
     end
     
-    t(any(isnan(x),3)) = 0;
+    %t(any(isnan(x),3)) = 0;
     
     if ~isempty(instanceWeights)
         y = instanceWeights(:)' * t(:) ;
@@ -316,7 +316,7 @@ else
             y = - dzdy .* c .* (c.*x < 1) ;
     end
     
-    y(isnan(x)) = 0;
+    %y(isnan(x)) = 0;
     if ~isempty(opts.maxNegPerImage)
         h = 0;
         N = size(x,4);
@@ -342,10 +342,13 @@ else
             if any(c(:)>1)
                 tmp = rand(size(c));
                 if ~isempty(opts.hard)
-                    tmp2 = sum(abs(y),3);
-                    tmp2(c~=1)=-inf;
+                    B = floor((opts.posNegRatio*opts.hard) * sum(c(:)>1));
+                    tmp2 = tmp;
+                    [~,est_c] = max(x,[],3);
+                    v = c~=1 | est_c == 1;
+                    B = min(B,sum(~v));
+                    tmp2(v)=-inf;
                     [~,ord] = sort(tmp2,'descend');
-                    B = (opts.posNegRatio*opts.hard) * sum(c(:)>1);
                     tmp(ord(1:B)) = 5;
                 end
                 tmp(c>1)=inf;
@@ -364,10 +367,13 @@ else
             if any(c(:)==1)
                 tmp = rand(size(c));
                 if ~isempty(opts.hard)
-                    tmp2 = sum(abs(y),3);
-                    tmp2(c~=-1)=-inf;
+                    error('not checked');
+                    B = floor((opts.posNegRatio*opts.hard) * sum(c(:)>1));
+                    tmp2 = tmp;
+                    v = c~=-1 | x>0;
+                    B = min(B,sum(~v));
+                    tmp2(v)=-inf;
                     [~,ord] = sort(tmp2,'descend');
-                    B = (opts.posNegRatio*opts.hard) * sum(c(:)==1);
                     tmp(ord(1:B)) = 5;
                 end
                 tmp(c==1)=inf;

@@ -20,7 +20,7 @@ classdef Loss < dagnn.ElementWise
         
         function [derInputs, derParams] = backward(obj, inputs, params, derOutputs)
             derInputs{1} = vl_nnloss(inputs{1}, inputs{2}, derOutputs{1}, 'loss', obj.loss, obj.opts{:}) ;
-            derInputs{2} = [] ;
+            derInputs{2} = 0*inputs{2} ;
             derParams = {} ;
         end
         
